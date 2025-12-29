@@ -103,7 +103,7 @@ export default function App() {
         </div>
 
         {/* Operational Area (Admin Only) */}
-        {user.role === 'admin' && (
+        {user.role === 'administrator' && (
           <AdminDashboard
             user={user}
             shipments={shipments}
