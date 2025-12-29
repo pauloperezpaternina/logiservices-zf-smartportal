@@ -207,6 +207,27 @@ export const DOrdenesModule: React.FC = () => {
 
             if (error) throw error;
 
+            // Update consecutive if new record
+            if (!formData.id) {
+                // We crudely increment the config. Ideally use an RPC for atomicity.
+                // Fetch current first to be safe or just increment
+                const { data: config } = await supabase
+                    .from('app_configuration')
+                    .select('value')
+                    .eq('key', 'do_consecutive')
+                    .single();
+
+                if (config) {
+                    const current = parseInt(config.value);
+                    if (!isNaN(current)) {
+                        await supabase
+                            .from('app_configuration')
+                            .update({ value: (current + 1).toString() })
+                            .eq('key', 'do_consecutive');
+                    }
+                }
+            }
+
             setSuccessMsg(formData.id ? 'D.O. actualizada correctamente' : 'D.O. creada exitosamente');
             setTimeout(() => {
                 setSuccessMsg('');
@@ -278,9 +299,20 @@ export const DOrdenesModule: React.FC = () => {
                             />
                         </div>
                         <button
-                            onClick={() => {
+                            onClick={async () => {
+                                // Fetch next code
+                                let nextCode = '';
+                                try {
+                                    const { data } = await supabase.from('app_configuration').select('*');
+                                    const cons = data?.find(k => k.key === 'do_consecutive')?.value || '1000';
+                                    const year = data?.find(k => k.key === 'do_year')?.value || new Date().getFullYear().toString();
+                                    nextCode = `DOLS${cons}-${year}`;
+                                } catch (e) {
+                                    console.error('Error generating code', e);
+                                }
+
                                 setFormData({
-                                    id: '', do_code: '', producto: '', bl_no: '', client_id_entidad: '',
+                                    id: '', do_code: nextCode, producto: '', bl_no: '', client_id_entidad: '',
                                     agencia_aduana_id: '', form_ingreso: '', liberacion_bl: '', pago_facturas_transporte: '',
                                     entrega_planilla_zf: '', traslado_zf: '', legalizacion_ingreso: '', proforma_ingreso: '',
                                     preinspeccion: '', form_salida: '', cargue_salida_mercancia: '', bultos: 0,
@@ -297,113 +329,115 @@ export const DOrdenesModule: React.FC = () => {
                 </div>
 
                 {/* List of Cards */}
-                {loading && dOrdenes.length === 0 ? (
-                    <div className="flex justify-center py-12 text-gray-400">
-                        <Loader2 className="animate-spin" size={32} />
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 gap-4">
-                        {dOrdenes.map(item => (
-                            <div key={item.id} className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow p-5 relative overflow-hidden group">
-                                {/* Top colored status line */}
-                                <div className={`absolute top-0 left-0 w-1 h-full ${item.activo ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                {
+                    loading && dOrdenes.length === 0 ? (
+                        <div className="flex justify-center py-12 text-gray-400">
+                            <Loader2 className="animate-spin" size={32} />
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 gap-4">
+                            {dOrdenes.map(item => (
+                                <div key={item.id} className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow p-5 relative overflow-hidden group">
+                                    {/* Top colored status line */}
+                                    <div className={`absolute top-0 left-0 w-1 h-full ${item.activo ? 'bg-green-500' : 'bg-gray-300'}`}></div>
 
-                                <div className="flex flex-col xl:flex-row gap-6">
-                                    {/* Main Info Column */}
-                                    <div className="xl:w-1/4 space-y-3 xl:border-r border-gray-100 xl:pr-4">
-                                        <div className="flex items-start justify-between">
-                                            <div>
-                                                <h3 className="text-xl font-bold text-brand-blue">{item.do_code}</h3>
-                                                <p className="text-sm font-medium text-gray-500">{item.producto}</p>
+                                    <div className="flex flex-col xl:flex-row gap-6">
+                                        {/* Main Info Column */}
+                                        <div className="xl:w-1/4 space-y-3 xl:border-r border-gray-100 xl:pr-4">
+                                            <div className="flex items-start justify-between">
+                                                <div>
+                                                    <h3 className="text-xl font-bold text-brand-blue">{item.do_code}</h3>
+                                                    <p className="text-sm font-medium text-gray-500">{item.producto}</p>
+                                                </div>
+                                                <div title={item.activo ? 'Activo' : 'Inactivo'}>
+                                                    {item.activo ? <CheckCircle size={18} className="text-green-500" /> : <XCircle size={18} className="text-gray-400" />}
+                                                </div>
                                             </div>
-                                            <div title={item.activo ? 'Activo' : 'Inactivo'}>
-                                                {item.activo ? <CheckCircle size={18} className="text-green-500" /> : <XCircle size={18} className="text-gray-400" />}
+
+                                            <div className="space-y-1">
+                                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                                    <FileText size={14} className="text-gray-400" />
+                                                    <span className="font-semibold">BL:</span> {item.bl_no}
+                                                </div>
+                                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                                    <Package size={14} className="text-gray-400" />
+                                                    <span className="font-semibold">Bultos:</span> {item.bultos}
+                                                </div>
+                                            </div>
+
+                                            <div className="pt-2 border-t border-gray-50 grid grid-cols-2 gap-2 xl:block xl:space-y-2">
+                                                <div>
+                                                    <div className="text-xs text-gray-500 uppercase font-bold mb-1">Cliente</div>
+                                                    <div className="text-sm font-medium text-gray-800 break-words">{item.cliente?.nombre || '---'}</div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-xs text-gray-500 uppercase font-bold mb-1">Agencia</div>
+                                                    <div className="text-sm font-medium text-gray-800 break-words">{item.agencia?.nombre || '---'}</div>
+                                                </div>
                                             </div>
                                         </div>
 
-                                        <div className="space-y-1">
-                                            <div className="flex items-center gap-2 text-sm text-gray-600">
-                                                <FileText size={14} className="text-gray-400" />
-                                                <span className="font-semibold">BL:</span> {item.bl_no}
+                                        {/* Logistics Grid Column */}
+                                        <div className="flex-1">
+                                            <div className="mb-2 flex items-center gap-2">
+                                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Detalles Logísticos</h4>
+                                                <div className="h-[1px] bg-gray-100 flex-1"></div>
                                             </div>
-                                            <div className="flex items-center gap-2 text-sm text-gray-600">
-                                                <Package size={14} className="text-gray-400" />
-                                                <span className="font-semibold">Bultos:</span> {item.bultos}
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                                                {/* We map the columns from the image */}
+                                                <InfoPill label="Form. Ingreso" value={item.form_ingreso} />
+                                                <InfoPill label="Lib. BL" value={item.liberacion_bl} />
+                                                <InfoPill label="Pago Transp." value={item.pago_facturas_transporte} />
+                                                <InfoPill label="Planilla ZF" value={item.entrega_planilla_zf} />
+                                                <InfoPill label="Traslado ZF" value={item.traslado_zf} />
+                                                <InfoPill label="Legaliz. Ing." value={item.legalizacion_ingreso} />
+                                                <InfoPill label="Proforma" value={item.proforma_ingreso} />
+                                                <InfoPill label="Preinspección" value={item.preinspeccion} />
+                                                <InfoPill label="Form. Salida" value={item.form_salida} />
+                                                <InfoPill label="Cargue/Salida" value={item.cargue_salida_mercancia} />
                                             </div>
+
+                                            {(item.fecha_facturacion_almacenaje || item.observaciones) && (
+                                                <div className="mt-4 pt-3 border-t border-gray-100 flex flex-col md:flex-row gap-4 text-sm">
+                                                    {item.fecha_facturacion_almacenaje && (
+                                                        <div className="flex items-center gap-2 min-w-fit">
+                                                            <Calendar size={14} className="text-indigo-400" />
+                                                            <span className="text-xs font-bold text-gray-500">Fact. Almacenaje:</span>
+                                                            <span className="text-gray-700">{item.fecha_facturacion_almacenaje}</span>
+                                                        </div>
+                                                    )}
+                                                    {item.observaciones && (
+                                                        <div className="text-gray-500 italic flex-1 truncate" title={item.observaciones}>
+                                                            <span className="font-bold not-italic mr-1 text-xs text-gray-400 uppercase">Obs:</span>
+                                                            {item.observaciones}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
 
-                                        <div className="pt-2 border-t border-gray-50 grid grid-cols-2 gap-2 xl:block xl:space-y-2">
-                                            <div>
-                                                <div className="text-xs text-gray-500 uppercase font-bold mb-1">Cliente</div>
-                                                <div className="text-sm font-medium text-gray-800 break-words">{item.cliente?.nombre || '---'}</div>
-                                            </div>
-                                            <div>
-                                                <div className="text-xs text-gray-500 uppercase font-bold mb-1">Agencia</div>
-                                                <div className="text-sm font-medium text-gray-800 break-words">{item.agencia?.nombre || '---'}</div>
-                                            </div>
+                                        {/* Action Buttons */}
+                                        <div className="flex xl:flex-col justify-end xl:justify-start gap-2 xl:pl-4 xl:border-l border-gray-100">
+                                            <button
+                                                onClick={() => handleEdit(item)}
+                                                className="p-2 text-gray-400 hover:text-brand-blue hover:bg-blue-50 rounded-lg transition-colors"
+                                                title="Editar"
+                                            >
+                                                <Edit size={18} />
+                                            </button>
                                         </div>
-                                    </div>
-
-                                    {/* Logistics Grid Column */}
-                                    <div className="flex-1">
-                                        <div className="mb-2 flex items-center gap-2">
-                                            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Detalles Logísticos</h4>
-                                            <div className="h-[1px] bg-gray-100 flex-1"></div>
-                                        </div>
-                                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-                                            {/* We map the columns from the image */}
-                                            <InfoPill label="Form. Ingreso" value={item.form_ingreso} />
-                                            <InfoPill label="Lib. BL" value={item.liberacion_bl} />
-                                            <InfoPill label="Pago Transp." value={item.pago_facturas_transporte} />
-                                            <InfoPill label="Planilla ZF" value={item.entrega_planilla_zf} />
-                                            <InfoPill label="Traslado ZF" value={item.traslado_zf} />
-                                            <InfoPill label="Legaliz. Ing." value={item.legalizacion_ingreso} />
-                                            <InfoPill label="Proforma" value={item.proforma_ingreso} />
-                                            <InfoPill label="Preinspección" value={item.preinspeccion} />
-                                            <InfoPill label="Form. Salida" value={item.form_salida} />
-                                            <InfoPill label="Cargue/Salida" value={item.cargue_salida_mercancia} />
-                                        </div>
-
-                                        {(item.fecha_facturacion_almacenaje || item.observaciones) && (
-                                            <div className="mt-4 pt-3 border-t border-gray-100 flex flex-col md:flex-row gap-4 text-sm">
-                                                {item.fecha_facturacion_almacenaje && (
-                                                    <div className="flex items-center gap-2 min-w-fit">
-                                                        <Calendar size={14} className="text-indigo-400" />
-                                                        <span className="text-xs font-bold text-gray-500">Fact. Almacenaje:</span>
-                                                        <span className="text-gray-700">{item.fecha_facturacion_almacenaje}</span>
-                                                    </div>
-                                                )}
-                                                {item.observaciones && (
-                                                    <div className="text-gray-500 italic flex-1 truncate" title={item.observaciones}>
-                                                        <span className="font-bold not-italic mr-1 text-xs text-gray-400 uppercase">Obs:</span>
-                                                        {item.observaciones}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Action Buttons */}
-                                    <div className="flex xl:flex-col justify-end xl:justify-start gap-2 xl:pl-4 xl:border-l border-gray-100">
-                                        <button
-                                            onClick={() => handleEdit(item)}
-                                            className="p-2 text-gray-400 hover:text-brand-blue hover:bg-blue-50 rounded-lg transition-colors"
-                                            title="Editar"
-                                        >
-                                            <Edit size={18} />
-                                        </button>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
-                        {dOrdenes.length === 0 && !loading && (
-                            <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                                <p className="text-gray-500">No se encontraron órdenes.</p>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
+                            ))}
+                            {dOrdenes.length === 0 && !loading && (
+                                <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                                    <p className="text-gray-500">No se encontraron órdenes.</p>
+                                </div>
+                            )}
+                        </div>
+                    )
+                }
+            </div >
         );
     }
 
@@ -443,7 +477,8 @@ export const DOrdenesModule: React.FC = () => {
                             <input
                                 type="text"
                                 required
-                                className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-brand-blue/20"
+                                disabled
+                                className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-brand-blue/20 bg-gray-100 text-gray-500 cursor-not-allowed"
                                 value={formData.do_code}
                                 onChange={e => setFormData({ ...formData, do_code: e.target.value })}
                                 placeholder="Ej. DO-2024-001"
@@ -519,12 +554,12 @@ export const DOrdenesModule: React.FC = () => {
                         {/* Row 2 */}
                         <div className="md:col-span-1">
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Entrega Planilla ZF</label>
-                            <input type="text" className="w-full border rounded p-2 text-sm" placeholder="MM/DD/AAAA"
+                            <input type="date" className="w-full border rounded p-2 text-sm"
                                 value={formData.entrega_planilla_zf} onChange={e => setFormData({ ...formData, entrega_planilla_zf: e.target.value })} />
                         </div>
                         <div className="md:col-span-1">
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Traslado a ZF</label>
-                            <input type="text" className="w-full border rounded p-2 text-sm" placeholder="MM/DD/AAAA"
+                            <input type="date" className="w-full border rounded p-2 text-sm"
                                 value={formData.traslado_zf} onChange={e => setFormData({ ...formData, traslado_zf: e.target.value })} />
                         </div>
                         <div className="md:col-span-1">
@@ -546,7 +581,7 @@ export const DOrdenesModule: React.FC = () => {
                         </div>
                         <div className="md:col-span-1">
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Cargue/Salida</label>
-                            <input type="text" className="w-full border rounded p-2 text-sm" placeholder="MM/DD/AAAA"
+                            <input type="date" className="w-full border rounded p-2 text-sm"
                                 value={formData.cargue_salida_mercancia} onChange={e => setFormData({ ...formData, cargue_salida_mercancia: e.target.value })} />
                         </div>
                         <div className="md:col-span-1">

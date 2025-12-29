@@ -14,6 +14,7 @@ import { LayoutDashboard, Users, FileSpreadsheet } from 'lucide-react';
 import { UsersModule } from './components/UsersModule';
 import { RolesModule } from './components/RolesModule';
 import { UserProfile } from './components/UserProfile';
+import { ConfigModule } from './components/ConfigModule';
 
 // Simplified Admin Dashboard (Just the content)
 const AdminDashboard = ({ user, shipments, onAddShipment }: { user: User, shipments: Shipment[], onAddShipment: () => void }) => {
@@ -59,7 +60,10 @@ export default function App() {
       case 'entidades': return <EntidadesModule />;
       case 'dordenes': return <DOrdenesModule />;
       case 'users': return <UsersModule />;
+
+      // ... (in switch)
       case 'roles': return <RolesModule />;
+      case 'config': return <ConfigModule />;
       case 'profile': return <UserProfile user={user} />;
       case 'dashboard':
       default:

@@ -1,155 +1,194 @@
-import React, { useState } from 'react';
-import { Package, Search, Calendar, Filter, Truck, CheckCircle, Clock, FileText } from 'lucide-react';
-import { Shipment, User } from '../types';
-import { STATUS_COLORS } from '../constants';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../services/supabase';
+import { Loader2, Calendar, Filter, FileText } from 'lucide-react';
+import { User, Shipment } from '../types';
 
 interface Props {
   user: User;
   shipments: Shipment[];
 }
 
-export const Dashboard: React.FC<Props> = ({ user, shipments }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
+interface ChartData {
+  name: string;
+  value: number;
+  color: string;
+  percent: number;
+}
 
-  const filteredShipments = shipments.filter(s => {
-    const matchesSearch = s.blNumber.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          s.clientName.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === 'all' || s.status === filterStatus;
-    return matchesSearch && matchesStatus;
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#8dd1e1'];
+
+export const Dashboard: React.FC<Props> = ({ user }) => {
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<ChartData[]>([]);
+
+  // Date Filters
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    return d.toISOString().split('T')[0];
   });
+
+  const [endDate, setEndDate] = useState(() => {
+    return new Date().toISOString().split('T')[0];
+  });
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [startDate, endDate]);
+
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    try {
+      const { data: ordenes, error } = await supabase
+        .from('d_ordenes')
+        .select('client_id_entidad')
+        .gte('created_at', `${startDate}T00:00:00`)
+        .lte('created_at', `${endDate}T23:59:59`);
+
+      if (error) throw error;
+
+      const clientIds = Array.from(new Set(ordenes?.map(o => o.client_id_entidad) || [])).filter(Boolean);
+
+      let clientMap: Record<string, string> = {};
+      if (clientIds.length > 0) {
+        const { data: clients } = await supabase
+          .from('entidades')
+          .select('id, nombre')
+          .in('id', clientIds);
+        clients?.forEach(c => {
+          clientMap[c.id] = c.nombre;
+        });
+      }
+
+      const counts: Record<string, number> = {};
+      let total = 0;
+      ordenes?.forEach(o => {
+        const name = clientMap[o.client_id_entidad] || 'Desconocido';
+        counts[name] = (counts[name] || 0) + 1;
+        total++;
+      });
+
+      const chartData: ChartData[] = Object.entries(counts)
+        .sort(([, a], [, b]) => b - a)
+        .map(([name, value], index) => ({
+          name,
+          value,
+          color: COLORS[index % COLORS.length],
+          percent: total > 0 ? (value / total) * 100 : 0
+        }));
+
+      setData(chartData);
+
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Simple SVG Pie Chart Component
+  const SimplePieChart = ({ data }: { data: ChartData[] }) => {
+    let cumulativePercent = 0;
+
+    const getCoordinatesForPercent = (percent: number) => {
+      const x = Math.cos(2 * Math.PI * percent);
+      const y = Math.sin(2 * Math.PI * percent);
+      return [x, y];
+    };
+
+    return (
+      <div className="flex flex-col md:flex-row items-center justify-center gap-8">
+        <div className="relative w-64 h-64">
+          <svg viewBox="-1 -1 2 2" className="transform -rotate-90 w-full h-full">
+            {data.map((slice, i) => {
+              const start = cumulativePercent; // 0..1
+              cumulativePercent += slice.percent / 100;
+              const end = cumulativePercent; // 0..1
+
+              // If it's a full circle
+              if (slice.percent === 100) {
+                return <circle key={i} cx="0" cy="0" r="1" fill={slice.color} />;
+              }
+
+              const [startX, startY] = getCoordinatesForPercent(start);
+              const [endX, endY] = getCoordinatesForPercent(end);
+              const largeArcFlag = slice.percent > 50 ? 1 : 0;
+
+              const pathData = [
+                `M 0 0`,
+                `L ${startX} ${startY}`,
+                `A 1 1 0 ${largeArcFlag} 1 ${endX} ${endY}`,
+                `L 0 0`,
+              ].join(' ');
+
+              return (
+                <path key={i} d={pathData} fill={slice.color} stroke="white" strokeWidth="0.01" />
+              );
+            })}
+            {/* Center hole for Donut effect (optional, looks better) */}
+            <circle cx="0" cy="0" r="0.6" fill="white" />
+          </svg>
+        </div>
+
+        {/* Legend */}
+        <div className="grid grid-cols-1 gap-2">
+          {data.map((slice, i) => (
+            <div key={i} className="flex items-center gap-2 text-sm">
+              <div className="w-4 h-4 rounded" style={{ backgroundColor: slice.color }}></div>
+              <span className="font-semibold text-gray-700">{slice.name}</span>
+              <span className="text-gray-500">({slice.value} - {slice.percent.toFixed(1)}%)</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
-      
-      {/* Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-blue-100 text-brand-blue rounded-lg"><Truck size={20} /></div>
-            <span className="text-sm text-gray-500 font-medium">En Tránsito</span>
-          </div>
-          <span className="text-2xl font-bold text-gray-800">{shipments.filter(s => s.status === 'In Transit').length}</span>
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-2 text-gray-700">
+          <Filter size={20} className="text-brand-blue" />
+          <h2 className="font-bold">Filtros de Fecha</h2>
         </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-brand-yellow/20 text-yellow-700 rounded-lg"><Package size={20} /></div>
-            <span className="text-sm text-gray-500 font-medium">En Bodega</span>
+
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500">Desde:</span>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-blue/20"
+            />
           </div>
-          <span className="text-2xl font-bold text-gray-800">{shipments.filter(s => s.status === 'In Warehouse').length}</span>
-        </div>
-         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hidden md:block">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-green-100 text-green-700 rounded-lg"><CheckCircle size={20} /></div>
-            <span className="text-sm text-gray-500 font-medium">Despachados</span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500">Hasta:</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-blue/20"
+            />
           </div>
-          <span className="text-2xl font-bold text-gray-800">{shipments.filter(s => s.status === 'Dispatched').length}</span>
-        </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hidden md:block">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-gray-100 text-gray-700 rounded-lg"><Clock size={20} /></div>
-            <span className="text-sm text-gray-500 font-medium">Total Mes</span>
-          </div>
-          <span className="text-2xl font-bold text-gray-800">24</span>
         </div>
       </div>
 
-      {/* Filters & Search */}
-      <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-        <div className="relative w-full md:w-96">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-          <input
-            type="text"
-            placeholder="Buscar por BL o Cliente..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-blue"
-          />
-        </div>
-        <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
-          {['all', 'In Transit', 'In Warehouse', 'Dispatched'].map(st => (
-            <button
-              key={st}
-              onClick={() => setFilterStatus(st)}
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                filterStatus === st 
-                  ? 'bg-brand-blue text-white' 
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {st === 'all' ? 'Todos' : st}
-            </button>
-          ))}
-        </div>
-      </div>
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 min-h-[400px]">
+        <h3 className="text-lg font-bold text-gray-800 mb-6 text-center">Distribución de Órdenes por Cliente</h3>
 
-      {/* Inventory List (Mobile Cards / Desktop Table) */}
-      <div className="space-y-4">
-        <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-            <Package className="text-brand-blue" />
-            Inventario Actual
-        </h2>
-        
-        {/* Mobile View: Cards */}
-        <div className="grid grid-cols-1 md:hidden gap-4">
-          {filteredShipments.map(item => (
-            <div key={item.id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 space-y-3">
-              <div className="flex justify-between items-start">
-                <div>
-                    <h4 className="font-bold text-gray-800">{item.blNumber}</h4>
-                    <p className="text-xs text-gray-500">{item.clientName}</p>
-                </div>
-                <span className={`px-2 py-1 rounded-full text-xs font-semibold ${STATUS_COLORS[item.status]}`}>
-                  {item.status}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
-                <div className="flex items-center gap-1"><FileText size={14}/> {item.invoiceNumber}</div>
-                <div className="flex items-center gap-1"><Calendar size={14}/> {item.arrivalDate}</div>
-              </div>
-              <div className="pt-2 border-t border-gray-50">
-                  <p className="text-sm font-medium text-gray-700">{item.items[0]?.description} ({item.items[0]?.quantity} unds)</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Desktop View: Table */}
-        <div className="hidden md:block bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-100">
-              <tr>
-                <th className="px-6 py-4">BL Number</th>
-                <th className="px-6 py-4">Cliente</th>
-                <th className="px-6 py-4">Factura</th>
-                <th className="px-6 py-4">Ingreso</th>
-                <th className="px-6 py-4">Estado</th>
-                <th className="px-6 py-4">Mercancía</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filteredShipments.map(item => (
-                <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-gray-800">{item.blNumber}</td>
-                  <td className="px-6 py-4 text-gray-600">{item.clientName}</td>
-                  <td className="px-6 py-4 text-gray-600">{item.invoiceNumber}</td>
-                  <td className="px-6 py-4 text-gray-600">{item.arrivalDate}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${STATUS_COLORS[item.status]}`}>
-                      {item.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-gray-600 truncate max-w-xs">{item.items[0]?.description}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {filteredShipments.length === 0 && (
-            <div className="p-8 text-center text-gray-400">
-                No se encontraron envíos.
-            </div>
-          )}
-        </div>
+        {loading ? (
+          <div className="flex h-64 items-center justify-center">
+            <Loader2 className="animate-spin text-brand-blue" size={40} />
+          </div>
+        ) : data.length === 0 ? (
+          <div className="flex h-64 items-center justify-center text-gray-400 flex-col gap-2">
+            <FileText size={40} />
+            <p>No hay datos para el rango seleccionado</p>
+          </div>
+        ) : (
+          <SimplePieChart data={data} />
+        )}
       </div>
     </div>
   );

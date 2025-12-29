@@ -89,6 +89,7 @@ export const Layout: React.FC<Props> = ({ user, onLogout, children, currentView,
                 <NavItem view="dordenes" icon={FileSpreadsheet} label="D.Ordenes" requiredRole="administrator" />
                 <NavItem view="users" icon={UserIcon} label="Usuarios" requiredRole="administrator" />
                 <NavItem view="roles" icon={Shield} label="Roles y Permisos" requiredRole="administrator" />
+                <NavItem view="config" icon={Settings} label="Configuración" requiredRole="administrator" />
               </>
             )}
           </nav>
