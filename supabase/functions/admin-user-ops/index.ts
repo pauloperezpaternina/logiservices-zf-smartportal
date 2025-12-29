@@ -89,6 +89,8 @@ serve(async (req) => {
                 }
             })
 
+            console.log('Returning Users:', JSON.stringify(mergedUsers));
+
             return new Response(JSON.stringify({ users: mergedUsers }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
                 status: 200,
