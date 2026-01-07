@@ -67,6 +67,10 @@ export const DOrdenesModule: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
 
+    // Filters State
+    const [filterBodega, setFilterBodega] = useState('all');
+    const [filterActivo, setFilterActivo] = useState('all');
+
     // Data List
     const [dOrdenes, setDOrdenes] = useState<DOrden[]>([]);
     const [movimientos, setMovimientos] = useState<DOrdenMovimiento[]>([]);
@@ -121,9 +125,9 @@ export const DOrdenesModule: React.FC = () => {
     useEffect(() => {
         if (view === 'list') {
             fetchDOrdenes();
-            setCurrentPage(1); // Reset to first page on search
+            setCurrentPage(1); // Reset to first page on search or filter
         }
-    }, [view, searchTerm]);
+    }, [view, searchTerm, filterBodega, filterActivo]);
 
     const fetchEntidades = async () => {
         try {
@@ -166,6 +170,16 @@ export const DOrdenesModule: React.FC = () => {
                 // To search in related tables, supabase needs specific syntax or flattened view. 
                 // Simple search on local columns first.
                 query = query.or(`do_code.ilike.%${searchTerm}%,producto.ilike.%${searchTerm}%,bl_no.ilike.%${searchTerm}%`);
+            }
+
+            if (filterBodega !== 'all') {
+                query = query.eq('bodega', filterBodega);
+            }
+
+            if (filterActivo === 'active') {
+                query = query.eq('activo', true);
+            } else if (filterActivo === 'inactive') {
+                query = query.eq('activo', false);
             }
 
             const { data, error } = await query;
@@ -432,11 +446,34 @@ export const DOrdenesModule: React.FC = () => {
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                             <input
                                 type="text"
-                                placeholder="Buscar DO, BL, Producto..."
-                                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-brand-blue/20 outline-none"
+                                placeholder="Buscar DO, BL..."
+                                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-blue/20 outline-none transition-all"
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
                             />
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <select
+                                value={filterBodega}
+                                onChange={e => setFilterBodega(e.target.value)}
+                                className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-brand-blue/20"
+                            >
+                                <option value="all">Todas Bodegas</option>
+                                <option value="D13">Bodega D13</option>
+                                <option value="CA1-CA2">Bodega CA1-CA2</option>
+                                <option value="PATIO">Patio</option>
+                            </select>
+
+                            <select
+                                value={filterActivo}
+                                onChange={e => setFilterActivo(e.target.value)}
+                                className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-brand-blue/20"
+                            >
+                                <option value="all">Todos los Estados</option>
+                                <option value="active">Activos</option>
+                                <option value="inactive">Inactivos</option>
+                            </select>
                         </div>
 
                         {/* Layout Toggle */}
