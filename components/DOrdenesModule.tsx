@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase';
 import { SearchableSelect } from './SearchableSelect';
-import { Save, Loader2, FileSpreadsheet, Search, Plus, ArrowLeft, Edit, Trash2, Calendar, Package, FileText, CheckCircle, XCircle, TrendingUp, X } from 'lucide-react';
+import { Save, Loader2, FileSpreadsheet, Search, Plus, ArrowLeft, Edit, Trash2, Calendar, Package, FileText, CheckCircle, XCircle, TrendingUp, X, LayoutGrid, LayoutList } from 'lucide-react';
 
 interface Entidad {
     id: string;
@@ -48,6 +48,7 @@ interface DOrden {
     form_salida: string;
     cargue_salida_mercancia: string; // M/D/A
     bultos: number;
+    bodega: string;
     fecha_facturacion_almacenaje: string;
     observaciones: string;
     activo: boolean;
@@ -60,6 +61,7 @@ export const DOrdenesModule: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [successMsg, setSuccessMsg] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
+    const [gridCols, setGridCols] = useState<1 | 2>(2);
 
     // Data List
     const [dOrdenes, setDOrdenes] = useState<DOrden[]>([]);
@@ -101,6 +103,7 @@ export const DOrdenesModule: React.FC = () => {
         form_salida: '',
         cargue_salida_mercancia: '',
         bultos: 0,
+        bodega: '',
         fecha_facturacion_almacenaje: '',
         observaciones: '',
         activo: true
@@ -216,6 +219,7 @@ export const DOrdenesModule: React.FC = () => {
                 form_salida: formData.form_salida,
                 cargue_salida_mercancia: formData.cargue_salida_mercancia || null,
                 bultos: formData.bultos,
+                bodega: formData.bodega,
                 fecha_facturacion_almacenaje: formData.fecha_facturacion_almacenaje || null,
                 observaciones: formData.observaciones,
                 activo: formData.activo
@@ -286,6 +290,8 @@ export const DOrdenesModule: React.FC = () => {
             preinspeccion: item.preinspeccion || '',
             form_salida: item.form_salida || '',
             cargue_salida_mercancia: item.cargue_salida_mercancia || '',
+            bultos: item.bultos || 0,
+            bodega: item.bodega || '',
             fecha_facturacion_almacenaje: item.fecha_facturacion_almacenaje || '',
             observaciones: item.observaciones || '',
         });
@@ -421,6 +427,25 @@ export const DOrdenesModule: React.FC = () => {
                                 onChange={e => setSearchTerm(e.target.value)}
                             />
                         </div>
+
+                        {/* Layout Toggle */}
+                        <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
+                            <button
+                                onClick={() => setGridCols(1)}
+                                className={`p-1.5 rounded transition-all ${gridCols === 1 ? 'bg-white shadow-sm text-brand-blue' : 'text-gray-400 hover:text-gray-600'}`}
+                                title="Vista Lista"
+                            >
+                                <LayoutList size={18} />
+                            </button>
+                            <button
+                                onClick={() => setGridCols(2)}
+                                className={`p-1.5 rounded transition-all ${gridCols === 2 ? 'bg-white shadow-sm text-brand-blue' : 'text-gray-400 hover:text-gray-600'}`}
+                                title="Vista Cuadrícula"
+                            >
+                                <LayoutGrid size={18} />
+                            </button>
+                        </div>
+
                         <button
                             onClick={async () => {
                                 // Fetch next code
@@ -438,7 +463,7 @@ export const DOrdenesModule: React.FC = () => {
                                     id: '', do_code: nextCode, producto: '', bl_no: '', client_id_entidad: '',
                                     agencia_aduana_id: '', form_ingreso: '', liberacion_bl: '', pago_facturas_transporte: '',
                                     entrega_planilla_zf: '', traslado_zf: '', legalizacion_ingreso: '', proforma_ingreso: '',
-                                    preinspeccion: '', form_salida: '', cargue_salida_mercancia: '', bultos: 0,
+                                    preinspeccion: '', form_salida: '', cargue_salida_mercancia: '', bultos: 0, bodega: '',
                                     fecha_facturacion_almacenaje: '', observaciones: '', activo: true
                                 });
                                 setView('create');
@@ -458,149 +483,141 @@ export const DOrdenesModule: React.FC = () => {
                             <Loader2 className="animate-spin" size={32} />
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 gap-4">
+                        <div className={`grid gap-4 ${gridCols === 2 ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
                             {dOrdenes.map(item => (
                                 <div key={item.id} className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow p-5 relative overflow-hidden group">
-                                    {/* Top colored status line */}
-                                    <div className={`absolute top-0 left-0 w-1 h-full ${item.activo ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                                    {/* Status Indicator */}
+                                    <div className={`absolute top-0 left-0 w-1.5 h-full ${item.activo ? 'bg-brand-blue' : 'bg-gray-300'}`}></div>
 
-                                    <div className="flex flex-col xl:flex-row gap-6">
-                                        {/* Main Info Column */}
-                                        <div className="xl:w-1/4 space-y-3 xl:border-r border-gray-100 xl:pr-4">
-                                            <div className="flex items-start justify-between">
-                                                <div>
-                                                    <h3 className="text-xl font-bold text-brand-blue">{item.do_code}</h3>
-                                                    <p className="text-sm font-medium text-gray-500">{item.producto}</p>
+                                    <div className="flex flex-col gap-4">
+                                        {/* Row 1: Header */}
+                                        <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                                            <div className="space-y-0.5">
+                                                <div className="flex items-center gap-2">
+                                                    <h3 className="text-xl font-black text-brand-blue tracking-tight">{item.do_code}</h3>
+                                                    {item.bodega && (
+                                                        <span className="bg-brand-blue/10 text-brand-blue px-2 py-0.5 rounded text-[10px] font-black uppercase">
+                                                            {item.bodega}
+                                                        </span>
+                                                    )}
                                                 </div>
-                                                <div title={item.activo ? 'Activo' : 'Inactivo'}>
-                                                    {item.activo ? <CheckCircle size={18} className="text-green-500" /> : <XCircle size={18} className="text-gray-400" />}
-                                                </div>
+                                                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">{item.producto}</p>
                                             </div>
-
-                                            <div className="space-y-1">
-                                                <div className="flex items-center gap-2 text-sm text-gray-600">
-                                                    <FileText size={14} className="text-gray-400" />
-                                                    <span className="font-semibold">BL:</span> {item.bl_no}
+                                            <div className="flex items-center gap-3">
+                                                <div className="text-right hidden sm:block">
+                                                    <p className="text-[10px] font-bold text-gray-400 uppercase">Referencia BL</p>
+                                                    <p className="text-sm font-black text-gray-700">{item.bl_no}</p>
                                                 </div>
-                                                <div className="flex items-center gap-2 text-sm text-gray-600">
-                                                    <Package size={14} className="text-gray-400" />
-                                                    <span className="font-semibold">Bultos:</span> {item.bultos}
-                                                </div>
-                                            </div>
-
-                                            <div className="pt-2 border-t border-gray-50 grid grid-cols-2 gap-2 xl:block xl:space-y-2">
-                                                <div>
-                                                    <div className="text-xs text-gray-500 uppercase font-bold mb-1">Cliente</div>
-                                                    <div className="text-sm font-medium text-gray-800 break-words">{item.cliente?.nombre || '---'}</div>
-                                                </div>
-                                                <div>
-                                                    <div className="text-xs text-gray-500 uppercase font-bold mb-1">Agencia</div>
-                                                    <div className="text-sm font-medium text-gray-800 break-words">{item.agencia?.nombre || '---'}</div>
-                                                </div>
+                                                <button
+                                                    onClick={() => handleEdit(item)}
+                                                    className="p-2 text-gray-400 hover:text-brand-blue hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100"
+                                                    title="Editar"
+                                                >
+                                                    <Edit size={18} />
+                                                </button>
                                             </div>
                                         </div>
 
-                                        {/* Logistics & Movements Column */}
-                                        <div className="flex-1 space-y-6">
-                                            {/* Logistics Grid */}
-                                            <div>
-                                                <div className="mb-2 flex items-center gap-2">
-                                                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Logística</h4>
+                                        {/* Row 2: Entities & Core Data */}
+                                        <div className="grid grid-cols-2 gap-4 py-2.5 bg-gray-50/50 rounded-xl px-4 border border-gray-100/50">
+                                            <div className="border-r border-gray-200 pr-2">
+                                                <p className="text-[10px] uppercase font-black text-gray-400 mb-0.5">Cliente</p>
+                                                <p className="text-xs font-bold text-gray-800 truncate" title={item.cliente?.nombre}>{item.cliente?.nombre || '---'}</p>
+                                            </div>
+                                            <div className="pl-2">
+                                                <p className="text-[10px] uppercase font-black text-gray-400 mb-0.5">Agencia</p>
+                                                <p className="text-xs font-bold text-gray-800 truncate" title={item.agencia?.nombre}>{item.agencia?.nombre || '---'}</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Details & Logistics Row */}
+                                        <div className="space-y-4">
+                                            {/* Top mini details */}
+                                            <div className="flex items-center gap-6">
+                                                <div className="flex items-center gap-2 text-xs text-gray-600">
+                                                    <Package size={14} className="text-brand-blue/60" />
+                                                    <span className="font-bold text-gray-500 uppercase">Bultos:</span>
+                                                    <span className="font-black text-brand-blue">{item.bultos}</span>
+                                                </div>
+                                                {item.created_at && (
+                                                    <div className="text-[10px] text-gray-500 font-bold uppercase flex items-center gap-1">
+                                                        <Calendar size={12} />
+                                                        {new Date(item.created_at).toLocaleDateString()}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Rastro Logístico (Grid) */}
+                                            <div className="space-y-2">
+                                                <div className="flex items-center gap-2">
+                                                    <h4 className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Rastro Logístico</h4>
                                                     <div className="h-[1px] bg-gray-100 flex-1"></div>
                                                 </div>
-                                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-                                                    <InfoPill label="Form. Ingreso" value={item.form_ingreso} />
+                                                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                                    <InfoPill label="Planilla ZF" value={item.entrega_planilla_zf} />
                                                     <InfoPill label="Form. Salida" value={item.form_salida} />
                                                     <InfoPill label="Lib. BL" value={item.liberacion_bl} />
-                                                    <InfoPill label="Pago Transp." value={item.pago_facturas_transporte} />
-                                                    <InfoPill label="Planilla ZF" value={item.entrega_planilla_zf} />
-                                                    <InfoPill label="Traslado ZF" value={item.traslado_zf} />
                                                 </div>
                                             </div>
 
-                                            {/* Movements Summary */}
+                                            {/* Recent Movements Summary */}
                                             {item.movimientos && item.movimientos.length > 0 && (
-                                                <div>
-                                                    <div className="mb-2 flex items-center gap-2">
-                                                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Movimientos Recientes</h4>
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <h4 className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Movimientos</h4>
                                                         <div className="h-[1px] bg-gray-100 flex-1"></div>
                                                     </div>
-                                                    <div className="space-y-2">
-                                                        {item.movimientos.slice(0, 3).map((m, idx) => (
-                                                            <div key={idx} className={`flex flex-col sm:flex-row sm:items-center justify-between p-2 rounded text-[11px] border ${m.tipo === 'ingreso' ? 'bg-green-50 border-green-100' : 'bg-orange-50 border-orange-100'}`}>
-                                                                <div className="flex flex-col gap-0.5 font-medium">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${m.tipo === 'ingreso' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
-                                                                            {m.tipo === 'ingreso' ? 'IN' : 'OUT'}
-                                                                        </span>
-                                                                        <span className="text-gray-700 font-bold">{m.placa}</span>
-                                                                        {m.formulario_ref && (
-                                                                            <span className="text-brand-blue font-bold px-1.5 bg-blue-50 rounded border border-blue-100 uppercase text-[9px]">
-                                                                                F: {m.formulario_ref}
-                                                                            </span>
-                                                                        )}
-                                                                        <span className="text-gray-400">|</span>
-                                                                        <span className="text-gray-600 truncate max-w-[120px]">{m.conductor}</span>
-                                                                    </div>
-                                                                    <div className="text-[10px] text-gray-400 flex items-center gap-1">
-                                                                        <Calendar size={10} />
-                                                                        {new Date(m.fecha_hora).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })}
-                                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        {item.movimientos.slice(0, 2).map((m, idx) => (
+                                                            <div key={idx} className={`flex items-center justify-between p-2 rounded-lg border text-[10px] ${m.tipo === 'ingreso' ? 'bg-green-50/50 border-green-100' : 'bg-orange-50/50 border-orange-100'}`}>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className={`px-1 rounded-[4px] font-black uppercase text-[8px] ${m.tipo === 'ingreso' ? 'bg-green-200 text-green-700' : 'bg-orange-200 text-orange-700'}`}>
+                                                                        {m.tipo === 'ingreso' ? 'INC' : 'OUT'}
+                                                                    </span>
+                                                                    <span className="font-bold text-gray-700">{m.placa}</span>
+                                                                    <span className="text-gray-400">|</span>
+                                                                    <span className="text-gray-500 font-medium">{new Date(m.fecha_hora).toLocaleDateString()}</span>
                                                                 </div>
-                                                                <div className="flex gap-3 font-bold mt-1 sm:mt-0">
-                                                                    <span className={m.tipo === 'ingreso' ? 'text-green-600' : 'text-orange-600'}>{m.bultos} Bultos</span>
-                                                                    <span className="text-gray-500">{m.peso_bruto} Kg</span>
+                                                                <div className="flex gap-3 font-black">
+                                                                    <span className={m.tipo === 'ingreso' ? 'text-green-600' : 'text-orange-600'}>
+                                                                        {m.tipo === 'ingreso' ? '+' : '-'}{m.bultos} <span className="text-[8px] font-bold opacity-60">BULT.</span>
+                                                                    </span>
                                                                 </div>
                                                             </div>
                                                         ))}
-                                                        {item.movimientos.length > 3 && (
-                                                            <div className="text-[10px] text-gray-400 italic text-center">+{item.movimientos.length - 3} movimientos más...</div>
+                                                        {item.movimientos.length > 2 && (
+                                                            <button
+                                                                onClick={() => handleEdit(item)}
+                                                                className="w-full text-center text-[9px] font-black text-brand-blue hover:underline uppercase tracking-tighter pt-1"
+                                                            >
+                                                                Ver {item.movimientos.length - 2} movimientos más
+                                                            </button>
                                                         )}
                                                     </div>
                                                 </div>
                                             )}
 
-                                            {(item.fecha_facturacion_almacenaje || item.observaciones) && (
-                                                <div className="mt-4 pt-3 border-t border-gray-100 flex flex-col md:flex-row gap-4 text-sm">
-                                                    {item.fecha_facturacion_almacenaje && (
-                                                        <div className="flex items-center gap-2 min-w-fit">
-                                                            <Calendar size={14} className="text-indigo-400" />
-                                                            <span className="text-xs font-bold text-gray-500">Fact. Almacenaje:</span>
-                                                            <span className="text-gray-700">{item.fecha_facturacion_almacenaje}</span>
-                                                        </div>
-                                                    )}
-                                                    {item.observaciones && (
-                                                        <div className="text-gray-500 italic flex-1 truncate" title={item.observaciones}>
-                                                            <span className="font-bold not-italic mr-1 text-xs text-gray-400 uppercase">Obs:</span>
-                                                            {item.observaciones}
-                                                        </div>
-                                                    )}
+                                            {/* Observations */}
+                                            {item.observaciones && (
+                                                <div className="pt-2 border-t border-gray-100 flex items-start gap-2">
+                                                    <span className="text-[10px] font-black text-gray-400 uppercase">Obs:</span>
+                                                    <p className="text-[10px] text-gray-500 italic truncate" title={item.observaciones}>
+                                                        {item.observaciones}
+                                                    </p>
                                                 </div>
                                             )}
-                                        </div>
-
-                                        {/* Action Buttons */}
-                                        <div className="flex xl:flex-col justify-end xl:justify-start gap-2 xl:pl-4 xl:border-l border-gray-100">
-                                            <button
-                                                onClick={() => handleEdit(item)}
-                                                className="p-2 text-gray-400 hover:text-brand-blue hover:bg-blue-50 rounded-lg transition-colors"
-                                                title="Editar"
-                                            >
-                                                <Edit size={18} />
-                                            </button>
                                         </div>
                                     </div>
                                 </div>
                             ))}
-                            {dOrdenes.length === 0 && !loading && (
-                                <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                                    <p className="text-gray-500">No se encontraron órdenes.</p>
-                                </div>
-                            )}
                         </div>
-                    )
-                }
-            </div >
+                    )}
+                {dOrdenes.length === 0 && !loading && (
+                    <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                        <p className="text-gray-500">No se encontraron órdenes.</p>
+                    </div>
+                )}
+            </div>
         );
     }
 
@@ -751,6 +768,19 @@ export const DOrdenesModule: React.FC = () => {
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Bultos</label>
                             <input type="number" className="w-full border rounded p-2 text-sm"
                                 value={formData.bultos} onChange={e => setFormData({ ...formData, bultos: Number(e.target.value) })} />
+                        </div>
+                        <div className="md:col-span-1">
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Bodega</label>
+                            <select
+                                className="w-full border rounded p-2 text-sm outline-none focus:ring-2 focus:ring-brand-blue/20"
+                                value={formData.bodega}
+                                onChange={e => setFormData({ ...formData, bodega: e.target.value })}
+                            >
+                                <option value="">Selección...</option>
+                                <option value="D13">D13</option>
+                                <option value="CA1-CA2">CA1-CA2</option>
+                                <option value="PATIO">PATIO</option>
+                            </select>
                         </div>
                         <div className="md:col-span-1">
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Fec. Fact. Almacenaje</label>
@@ -930,7 +960,15 @@ export const DOrdenesModule: React.FC = () => {
                     </div>
                 )}
 
-                <div className="pt-6 border-t flex justify-end">
+                <div className="pt-6 border-t flex justify-end gap-3">
+                    <button
+                        type="button"
+                        onClick={() => setView('list')}
+                        className="px-6 py-3 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
+                    >
+                        <X size={20} />
+                        Cerrar
+                    </button>
                     <button
                         type="submit"
                         disabled={loading}
