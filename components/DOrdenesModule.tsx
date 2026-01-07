@@ -63,6 +63,10 @@ export const DOrdenesModule: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [gridCols, setGridCols] = useState<1 | 2>(2);
 
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+
     // Data List
     const [dOrdenes, setDOrdenes] = useState<DOrden[]>([]);
     const [movimientos, setMovimientos] = useState<DOrdenMovimiento[]>([]);
@@ -117,6 +121,7 @@ export const DOrdenesModule: React.FC = () => {
     useEffect(() => {
         if (view === 'list') {
             fetchDOrdenes();
+            setCurrentPage(1); // Reset to first page on search
         }
     }, [view, searchTerm]);
 
@@ -407,6 +412,12 @@ export const DOrdenesModule: React.FC = () => {
     };
 
     if (view === 'list') {
+        // Logic for client-side pagination
+        const indexOfLastItem = currentPage * itemsPerPage;
+        const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+        const currentItems = dOrdenes.slice(indexOfFirstItem, indexOfLastItem);
+        const totalPages = Math.ceil(dOrdenes.length / itemsPerPage);
+
         return (
             <div className="max-w-7xl mx-auto space-y-6">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
@@ -477,14 +488,14 @@ export const DOrdenesModule: React.FC = () => {
                 </div>
 
                 {/* List of Cards */}
-                {
-                    loading && dOrdenes.length === 0 ? (
-                        <div className="flex justify-center py-12 text-gray-400">
-                            <Loader2 className="animate-spin" size={32} />
-                        </div>
-                    ) : (
+                {loading && dOrdenes.length === 0 ? (
+                    <div className="flex justify-center py-12 text-gray-400">
+                        <Loader2 className="animate-spin" size={32} />
+                    </div>
+                ) : (
+                    <>
                         <div className={`grid gap-4 ${gridCols === 2 ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
-                            {dOrdenes.map(item => (
+                            {currentItems.map(item => (
                                 <div key={item.id} className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow p-5 relative overflow-hidden group">
                                     {/* Status Indicator (Left Border) */}
                                     <div className={`absolute top-0 left-0 w-1.5 h-full ${item.activo ? 'bg-green-600' : 'bg-gray-300'}`}></div>
@@ -607,7 +618,80 @@ export const DOrdenesModule: React.FC = () => {
                                 </div>
                             ))}
                         </div>
-                    )}
+
+                        {/* Pagination UI */}
+                        {dOrdenes.length > 0 && (
+                            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-8 border-t border-gray-100">
+                                <div className="flex items-center gap-4 text-sm text-gray-500">
+                                    <div className="flex items-center gap-2">
+                                        <span>Mostrar:</span>
+                                        <select
+                                            value={itemsPerPage}
+                                            onChange={(e) => {
+                                                setItemsPerPage(Number(e.target.value));
+                                                setCurrentPage(1);
+                                            }}
+                                            className="bg-gray-50 border border-gray-200 rounded px-2 py-1 outline-none focus:ring-2 focus:ring-brand-blue/20"
+                                        >
+                                            <option value={10}>10</option>
+                                            <option value={20}>20</option>
+                                            <option value={30}>30</option>
+                                        </select>
+                                    </div>
+                                    <span>Mostrando {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, dOrdenes.length)} de {dOrdenes.length}</span>
+                                </div>
+
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                        disabled={currentPage === 1}
+                                        className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                                    >
+                                        Anterior
+                                    </button>
+
+                                    <div className="flex items-center gap-1 mx-2">
+                                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => {
+                                            // Simple pagination logic to show limited page numbers
+                                            if (
+                                                page === 1 ||
+                                                page === totalPages ||
+                                                (page >= currentPage - 1 && page <= currentPage + 1)
+                                            ) {
+                                                return (
+                                                    <button
+                                                        key={page}
+                                                        onClick={() => setCurrentPage(page)}
+                                                        className={`w-9 h-9 flex items-center justify-center rounded-lg text-sm font-medium transition-all ${currentPage === page
+                                                            ? 'bg-brand-blue text-white shadow-md'
+                                                            : 'text-gray-500 hover:bg-gray-100'
+                                                            }`}
+                                                    >
+                                                        {page}
+                                                    </button>
+                                                );
+                                            } else if (
+                                                page === currentPage - 2 ||
+                                                page === currentPage + 2
+                                            ) {
+                                                return <span key={page} className="text-gray-300">...</span>;
+                                            }
+                                            return null;
+                                        })}
+                                    </div>
+
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                        disabled={currentPage === totalPages}
+                                        className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                                    >
+                                        Siguiente
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </>
+                )}
                 {dOrdenes.length === 0 && !loading && (
                     <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">
                         <p className="text-gray-500">No se encontraron órdenes.</p>
