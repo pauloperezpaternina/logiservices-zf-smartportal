@@ -400,8 +400,8 @@ export const DOrdenesModule: React.FC = () => {
         if (!value) return <div className="hidden"></div>;
         return (
             <div className="flex flex-col bg-gray-50 p-2 rounded border border-gray-100 min-w-[100px]">
-                <span className="text-[10px] uppercase font-bold text-gray-400 mb-1">{label}</span>
-                <span className="text-xs font-semibold text-gray-700 truncate" title={value}>{value}</span>
+                <span className="text-[10px] uppercase font-semibold text-gray-400 mb-1">{label}</span>
+                <span className="text-xs font-medium text-gray-700 truncate" title={value}>{value}</span>
             </div>
         );
     };
@@ -486,31 +486,28 @@ export const DOrdenesModule: React.FC = () => {
                         <div className={`grid gap-4 ${gridCols === 2 ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
                             {dOrdenes.map(item => (
                                 <div key={item.id} className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow p-5 relative overflow-hidden group">
-                                    {/* Status Indicator */}
-                                    <div className={`absolute top-0 left-0 w-1.5 h-full ${item.activo ? 'bg-brand-blue' : 'bg-gray-300'}`}></div>
+                                    {/* Status Indicator (Left Border) */}
+                                    <div className={`absolute top-0 left-0 w-1.5 h-full ${item.activo ? 'bg-green-600' : 'bg-gray-300'}`}></div>
 
                                     <div className="flex flex-col gap-4">
                                         {/* Row 1: Header */}
-                                        <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-                                            <div className="space-y-0.5">
+                                        <div className="flex items-start justify-between">
+                                            <div className="space-y-1">
                                                 <div className="flex items-center gap-2">
-                                                    <h3 className="text-xl font-black text-brand-blue tracking-tight">{item.do_code}</h3>
+                                                    <h3 className="text-xl font-bold text-brand-blue tracking-tight">{item.do_code}</h3>
                                                     {item.bodega && (
-                                                        <span className="bg-brand-blue/10 text-brand-blue px-2 py-0.5 rounded text-[10px] font-black uppercase">
+                                                        <span className="bg-brand-blue/10 text-brand-blue px-2 py-0.5 rounded text-[10px] font-bold uppercase">
                                                             {item.bodega}
                                                         </span>
                                                     )}
                                                 </div>
-                                                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">{item.producto}</p>
+                                                <p className="text-sm font-medium text-gray-400 uppercase tracking-tight">{item.producto}</p>
                                             </div>
                                             <div className="flex items-center gap-3">
-                                                <div className="text-right hidden sm:block">
-                                                    <p className="text-[10px] font-bold text-gray-400 uppercase">Referencia BL</p>
-                                                    <p className="text-sm font-black text-gray-700">{item.bl_no}</p>
-                                                </div>
+                                                {item.activo && <CheckCircle size={22} className="text-green-500" />}
                                                 <button
                                                     onClick={() => handleEdit(item)}
-                                                    className="p-2 text-gray-400 hover:text-brand-blue hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100"
+                                                    className="p-2 text-gray-300 hover:text-brand-blue hover:bg-blue-50 rounded-lg transition-colors border border-transparent opacity-0 group-hover:opacity-100"
                                                     title="Editar"
                                                 >
                                                     <Edit size={18} />
@@ -518,39 +515,38 @@ export const DOrdenesModule: React.FC = () => {
                                             </div>
                                         </div>
 
-                                        {/* Row 2: Entities & Core Data */}
-                                        <div className="grid grid-cols-2 gap-4 py-2.5 bg-gray-50/50 rounded-xl px-4 border border-gray-100/50">
-                                            <div className="border-r border-gray-200 pr-2">
-                                                <p className="text-[10px] uppercase font-black text-gray-400 mb-0.5">Cliente</p>
-                                                <p className="text-xs font-bold text-gray-800 truncate" title={item.cliente?.nombre}>{item.cliente?.nombre || '---'}</p>
+                                        {/* Core Details (BL, Bultos) */}
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-2 text-gray-600">
+                                                <FileText size={16} className="text-gray-400" />
+                                                <span className="text-sm font-normal">BL: <span className="text-gray-900 font-semibold">{item.bl_no}</span></span>
                                             </div>
-                                            <div className="pl-2">
-                                                <p className="text-[10px] uppercase font-black text-gray-400 mb-0.5">Agencia</p>
-                                                <p className="text-xs font-bold text-gray-800 truncate" title={item.agencia?.nombre}>{item.agencia?.nombre || '---'}</p>
+                                            <div className="flex items-center gap-2 text-gray-600">
+                                                <Package size={16} className="text-gray-400" />
+                                                <span className="text-sm font-normal">Bultos: <span className="text-gray-900 font-semibold">{item.bultos}</span></span>
                                             </div>
                                         </div>
 
-                                        {/* Details & Logistics Row */}
-                                        <div className="space-y-4">
-                                            {/* Top mini details */}
-                                            <div className="flex items-center gap-6">
-                                                <div className="flex items-center gap-2 text-xs text-gray-600">
-                                                    <Package size={14} className="text-brand-blue/60" />
-                                                    <span className="font-bold text-gray-500 uppercase">Bultos:</span>
-                                                    <span className="font-black text-brand-blue">{item.bultos}</span>
-                                                </div>
-                                                {item.created_at && (
-                                                    <div className="text-[10px] text-gray-500 font-bold uppercase flex items-center gap-1">
-                                                        <Calendar size={12} />
-                                                        {new Date(item.created_at).toLocaleDateString()}
-                                                    </div>
-                                                )}
-                                            </div>
+                                        <div className="h-px bg-gray-50 flex-1"></div>
 
+                                        {/* Entities Section */}
+                                        <div className="space-y-3">
+                                            <div>
+                                                <p className="text-[10px] uppercase font-bold text-gray-400 mb-0.5">Cliente</p>
+                                                <p className="text-sm font-bold text-gray-800" title={item.cliente?.nombre}>{item.cliente?.nombre || '---'}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] uppercase font-bold text-gray-400 mb-0.5">Agencia</p>
+                                                <p className="text-sm font-bold text-gray-800" title={item.agencia?.nombre}>{item.agencia?.nombre || '---'}</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Logistics & Movements (Extended Data) */}
+                                        <div className="space-y-4 pt-2 border-t border-gray-50 mt-auto">
                                             {/* Rastro Logístico (Grid) */}
                                             <div className="space-y-2">
                                                 <div className="flex items-center gap-2">
-                                                    <h4 className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Rastro Logístico</h4>
+                                                    <h4 className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">Rastro Logístico</h4>
                                                     <div className="h-[1px] bg-gray-100 flex-1"></div>
                                                 </div>
                                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -564,23 +560,23 @@ export const DOrdenesModule: React.FC = () => {
                                             {item.movimientos && item.movimientos.length > 0 && (
                                                 <div className="space-y-2">
                                                     <div className="flex items-center gap-2">
-                                                        <h4 className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Movimientos</h4>
+                                                        <h4 className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">Movimientos</h4>
                                                         <div className="h-[1px] bg-gray-100 flex-1"></div>
                                                     </div>
                                                     <div className="space-y-1.5">
                                                         {item.movimientos.slice(0, 2).map((m, idx) => (
                                                             <div key={idx} className={`flex items-center justify-between p-2 rounded-lg border text-[10px] ${m.tipo === 'ingreso' ? 'bg-green-50/50 border-green-100' : 'bg-orange-50/50 border-orange-100'}`}>
                                                                 <div className="flex items-center gap-2">
-                                                                    <span className={`px-1 rounded-[4px] font-black uppercase text-[8px] ${m.tipo === 'ingreso' ? 'bg-green-200 text-green-700' : 'bg-orange-200 text-orange-700'}`}>
+                                                                    <span className={`px-1 rounded-[4px] font-bold uppercase text-[8px] ${m.tipo === 'ingreso' ? 'bg-green-200 text-green-700' : 'bg-orange-200 text-orange-700'}`}>
                                                                         {m.tipo === 'ingreso' ? 'INC' : 'OUT'}
                                                                     </span>
-                                                                    <span className="font-bold text-gray-700">{m.placa}</span>
+                                                                    <span className="font-semibold text-gray-700">{m.placa}</span>
                                                                     <span className="text-gray-400">|</span>
                                                                     <span className="text-gray-500 font-medium">{new Date(m.fecha_hora).toLocaleDateString()}</span>
                                                                 </div>
-                                                                <div className="flex gap-3 font-black">
+                                                                <div className="flex gap-3 font-bold">
                                                                     <span className={m.tipo === 'ingreso' ? 'text-green-600' : 'text-orange-600'}>
-                                                                        {m.tipo === 'ingreso' ? '+' : '-'}{m.bultos} <span className="text-[8px] font-bold opacity-60">BULT.</span>
+                                                                        {m.tipo === 'ingreso' ? '+' : '-'}{m.bultos} <span className="text-[8px] font-semibold opacity-60">BULT.</span>
                                                                     </span>
                                                                 </div>
                                                             </div>
@@ -588,7 +584,7 @@ export const DOrdenesModule: React.FC = () => {
                                                         {item.movimientos.length > 2 && (
                                                             <button
                                                                 onClick={() => handleEdit(item)}
-                                                                className="w-full text-center text-[9px] font-black text-brand-blue hover:underline uppercase tracking-tighter pt-1"
+                                                                className="w-full text-center text-[9px] font-bold text-brand-blue hover:underline uppercase tracking-tighter pt-1"
                                                             >
                                                                 Ver {item.movimientos.length - 2} movimientos más
                                                             </button>
@@ -599,8 +595,8 @@ export const DOrdenesModule: React.FC = () => {
 
                                             {/* Observations */}
                                             {item.observaciones && (
-                                                <div className="pt-2 border-t border-gray-100 flex items-start gap-2">
-                                                    <span className="text-[10px] font-black text-gray-400 uppercase">Obs:</span>
+                                                <div className="pt-2 flex items-start gap-2">
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase">Obs:</span>
                                                     <p className="text-[10px] text-gray-500 italic truncate" title={item.observaciones}>
                                                         {item.observaciones}
                                                     </p>
