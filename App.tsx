@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import { Layout } from './components/Layout';
 import { Auth } from './components/Auth';
 import { Dashboard } from './components/Dashboard';
-import { ShipmentForm } from './components/ShipmentForm';
 import { AIChatAssistant } from './components/AIChatAssistant';
 import { EntidadesModule } from './components/EntidadesModule';
 import { DOrdenesModule } from './components/DOrdenesModule';
@@ -17,15 +16,10 @@ import { UserProfile } from './components/UserProfile';
 import { ConfigModule } from './components/ConfigModule';
 
 // Simplified Admin Dashboard (Just the content)
-const AdminDashboard = ({ user, shipments, onAddShipment }: { user: User, shipments: Shipment[], onAddShipment: () => void }) => {
+const AdminDashboard = ({ user, shipments }: { user: User, shipments: Shipment[] }) => {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      <div className="lg:col-span-2">
-        <Dashboard user={user} shipments={shipments} />
-      </div>
-      <div className="lg:col-span-1">
-        <ShipmentForm onSuccess={onAddShipment} />
-      </div>
+    <div className="w-full">
+      <Dashboard user={user} shipments={shipments} />
     </div>
   );
 };
@@ -34,22 +28,6 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [shipments, setShipments] = useState<Shipment[]>(MOCK_SHIPMENTS);
   const [currentView, setCurrentView] = useState('dashboard');
-
-  // Add a new shipment (Mock)
-  const handleAddShipment = () => {
-    const newShipment: Shipment = {
-      id: Date.now().toString(),
-      blNumber: 'BL-NEW-ENTRY',
-      invoiceNumber: 'INV-PENDING',
-      vcesCode: 'VCES-NEW',
-      status: 'In Warehouse',
-      arrivalDate: new Date().toISOString().split('T')[0],
-      clientName: user?.companyName || 'Unknown',
-      items: [{ id: 'i-new', description: 'Mercancía Reciente', quantity: 0, weight: 0 }],
-      documents: []
-    };
-    setShipments(prev => [newShipment, ...prev]);
-  };
 
   if (!user) {
     return <Auth onLogin={setUser} />;
@@ -69,7 +47,7 @@ export default function App() {
       default:
         // Admin gets the full dashboard, Clients get their simple dashboard
         if (user.role === 'administrator') {
-          return <AdminDashboard user={user} shipments={shipments} onAddShipment={handleAddShipment} />;
+          return <AdminDashboard user={user} shipments={shipments} />;
         }
         return <Dashboard user={user} shipments={shipments} />;
     }

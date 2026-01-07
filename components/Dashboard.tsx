@@ -207,6 +207,7 @@ export const Dashboard: React.FC<Props> = ({ user }) => {
 
   return (
     <div className="space-y-6">
+      {/* Date Filters Header */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-2 text-gray-700">
           <Filter size={20} className="text-brand-blue" />
@@ -236,32 +237,32 @@ export const Dashboard: React.FC<Props> = ({ user }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Chart */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-100 min-h-[400px]">
-          <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
+        {/* Main Chart Column (2/3) */}
+        <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-100 min-h-[450px] flex flex-col">
+          <h3 className="text-lg font-bold text-gray-800 mb-8 flex items-center gap-2">
             <TrendingUp size={20} className="text-brand-blue" />
             Distribución de Órdenes por Cliente
           </h3>
 
           {loading ? (
-            <div className="flex h-64 items-center justify-center">
+            <div className="flex flex-1 items-center justify-center">
               <Loader2 className="animate-spin text-brand-blue" size={40} />
             </div>
           ) : data.length === 0 ? (
-            <div className="flex h-64 items-center justify-center text-gray-400 flex-col gap-2">
-              <FileText size={40} />
-              <p>No hay datos para el rango seleccionado</p>
+            <div className="flex flex-1 items-center justify-center text-gray-400 flex-col gap-2">
+              <FileText size={48} />
+              <p className="text-lg font-medium">No hay datos en el rango seleccionado</p>
             </div>
           ) : (
             <SimplePieChart data={data} />
           )}
         </div>
 
-        {/* Alerts Column */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-              <AlertTriangle size={20} className="text-orange-500" />
+        {/* Alerts Column (1/3) */}
+        <div className="bg-white p-1 rounded-xl shadow-sm border border-gray-100 flex flex-col">
+          <div className="p-5 flex items-center justify-between border-b border-gray-50">
+            <h3 className="text-lg font-black text-gray-800 flex items-center gap-2 tracking-tight">
+              <AlertTriangle size={24} className="text-orange-500" />
               Alertas de Almacenaje
             </h3>
             <span className="bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full text-[10px] font-black">
@@ -269,50 +270,59 @@ export const Dashboard: React.FC<Props> = ({ user }) => {
             </span>
           </div>
 
-          {loading ? (
-            <div className="flex flex-1 items-center justify-center">
-              <Loader2 className="animate-spin text-orange-400" size={24} />
-            </div>
-          ) : storageAlerts.length === 0 ? (
-            <div className="flex flex-1 flex-col items-center justify-center text-gray-300 gap-2 py-12">
-              <Clock size={40} />
-              <p className="text-sm font-medium">No hay alertas pendientes</p>
-            </div>
-          ) : (
-            <div className="space-y-4 overflow-y-auto max-h-[500px] pr-1">
-              {storageAlerts.map(alert => (
-                <div key={alert.id} className="group p-4 bg-orange-50/50 rounded-xl border border-orange-100 hover:bg-orange-50 transition-all">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-sm font-black text-brand-blue">{alert.do_code}</span>
-                    <div className="flex items-center gap-1 text-[10px] font-bold text-orange-600 bg-white px-2 py-0.5 rounded-full border border-orange-100">
-                      <Clock size={10} />
-                      {alert.days_left === 0 ? '¡Hoy cumple!' : `Faltan ${alert.days_left} días`}
+          <div className="flex-1 p-4 overflow-y-auto max-h-[600px] space-y-4 bg-gray-50/30">
+            {loading ? (
+              <div className="flex flex-1 items-center justify-center py-20">
+                <Loader2 className="animate-spin text-orange-400" size={32} />
+              </div>
+            ) : storageAlerts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center text-gray-300 gap-2 py-12">
+                <Clock size={40} />
+                <p className="text-sm font-medium">No hay alertas pendientes</p>
+              </div>
+            ) : (
+              storageAlerts.map(alert => (
+                <div key={alert.id} className="bg-white rounded-2xl border border-orange-100 shadow-sm p-5 hover:shadow-md transition-all relative overflow-hidden group">
+                  <div className="absolute top-0 left-0 w-1.5 h-full bg-orange-400 transform -translate-x-full group-hover:translate-x-0 transition-transform"></div>
+
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="space-y-1">
+                      <span className="text-base font-black text-brand-blue block leading-none">{alert.do_code}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 bg-orange-50 text-orange-600 px-3 py-1.5 rounded-full border border-orange-100 shadow-sm">
+                      <Clock size={12} className="shrink-0" />
+                      <span className="text-[11px] font-black whitespace-nowrap">Faltan {alert.days_left} días</span>
                     </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <Package size={12} className="text-gray-400" />
-                      <p className="text-xs text-gray-600 font-medium truncate">{alert.client_name}</p>
+
+                  <div className="flex items-start gap-2 mb-4">
+                    <Package size={14} className="text-gray-400 mt-0.5 shrink-0" />
+                    <p className="text-xs font-black text-gray-600 uppercase leading-[1.2] line-clamp-2">
+                      {alert.client_name}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-50">
+                    <div>
+                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Fecha Ingreso</p>
+                      <p className="text-sm font-bold text-gray-700">{alert.arrival_date}</p>
                     </div>
-                    <div className="flex items-center justify-between pt-2 border-t border-orange-100/50 mt-2">
-                      <div className="text-[10px] text-gray-500">
-                        <span className="block font-bold text-gray-400 uppercase">Ingreso</span>
-                        {alert.arrival_date}
-                      </div>
-                      <div className="text-[10px] text-right text-gray-500">
-                        <span className="block font-bold text-gray-400 uppercase">Días en Bodega</span>
-                        <span className="font-black text-orange-600">{alert.days_passed} días</span>
-                      </div>
+                    <div className="text-right">
+                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Días en Bodega</p>
+                      <p className="text-sm font-black text-orange-600 italic">{alert.days_passed} días</p>
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+              ))
+            )}
+          </div>
 
-          <p className="mt-4 text-[10px] text-gray-400 italic bg-gray-50 p-2 rounded text-center">
-            * Muestra D.O. que cumplen un mes (30 días) en los próximos 10 días.
-          </p>
+          <div className="p-4 bg-gray-50 border-t border-gray-100 rounded-b-xl">
+            <div className="flex items-center gap-3 text-[10px] text-gray-500 font-medium">
+              <div className="w-2 h-2 rounded-full bg-orange-400 shadow-[0_0_8px_rgba(251,146,60,0.5)] flex-shrink-0 animate-pulse"></div>
+              <p className="leading-tight">Considera D.O. activos sin salida que cumplen un mes (30 días) en los próximos 10 días.</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
