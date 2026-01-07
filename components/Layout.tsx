@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Menu, X, Home, LogOut, User as UserIcon, Settings, Globe, Users, FileSpreadsheet, LayoutDashboard, ChevronLeft, ChevronRight, Shield } from 'lucide-react';
+import { DollarTRM } from './DollarTRM';
 import { User } from '../types';
 
 interface Props {
@@ -78,6 +79,7 @@ export const Layout: React.FC<Props> = ({ user, onLogout, children, currentView,
 
           {/* Navigation */}
           <nav className="flex-1 space-y-2 p-4 overflow-y-auto">
+            <DollarTRM isCollapsed={isSidebarCollapsed} />
             <NavItem view="dashboard" icon={LayoutDashboard} label="Dashboard" />
 
             {user.role === 'administrator' && (

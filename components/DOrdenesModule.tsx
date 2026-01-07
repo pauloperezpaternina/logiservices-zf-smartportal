@@ -1,11 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase';
 import { SearchableSelect } from './SearchableSelect';
-import { Save, Loader2, FileSpreadsheet, Search, Plus, ArrowLeft, Edit, Trash2, Calendar, Package, FileText, CheckCircle, XCircle } from 'lucide-react';
+import { Save, Loader2, FileSpreadsheet, Search, Plus, ArrowLeft, Edit, Trash2, Calendar, Package, FileText, CheckCircle, XCircle, TrendingUp, X } from 'lucide-react';
 
 interface Entidad {
     id: string;
     nombre: string;
+}
+
+interface DOrdenMovimiento {
+    id?: string;
+    d_orden_id: string;
+    tipo: 'ingreso' | 'salida';
+    placa: string;
+    fecha_hora: string;
+    conductor: string;
+    bultos: number;
+    peso_bruto: number;
+    estado: 'total' | 'parcial';
+    created_at?: string;
 }
 
 interface DOrden {
@@ -20,6 +33,7 @@ interface DOrden {
     // Foreign Tables
     cliente?: { nombre: string };
     agencia?: { nombre: string };
+    movimientos?: DOrdenMovimiento[];
 
     // Logistics / Status
     form_ingreso: string;
@@ -48,6 +62,19 @@ export const DOrdenesModule: React.FC = () => {
 
     // Data List
     const [dOrdenes, setDOrdenes] = useState<DOrden[]>([]);
+    const [movimientos, setMovimientos] = useState<DOrdenMovimiento[]>([]);
+
+    // Movement Form State
+    const [newMov, setNewMov] = useState<DOrdenMovimiento>({
+        d_orden_id: '',
+        tipo: 'ingreso',
+        placa: '',
+        fecha_hora: new Date().toISOString().slice(0, 16),
+        conductor: '',
+        bultos: 0,
+        peso_bruto: 0,
+        estado: 'total'
+    });
 
     // Entity Options
     const [clientes, setClientes] = useState<Entidad[]>([]);
@@ -120,7 +147,8 @@ export const DOrdenesModule: React.FC = () => {
                 .select(`
                     *,
                     cliente:entidades!client_id_entidad(nombre),
-                    agencia:entidades!agencia_aduana_id(nombre)
+                    agencia:entidades!agencia_aduana_id(nombre),
+                    movimientos:d_ordenes_movimientos(*)
                 `)
                 .order('created_at', { ascending: false });
 
@@ -243,7 +271,7 @@ export const DOrdenesModule: React.FC = () => {
         }
     };
 
-    const handleEdit = (item: DOrden) => {
+    const handleEdit = async (item: DOrden) => {
         setFormData({
             ...item,
             form_ingreso: item.form_ingreso || '',
@@ -259,7 +287,98 @@ export const DOrdenesModule: React.FC = () => {
             fecha_facturacion_almacenaje: item.fecha_facturacion_almacenaje || '',
             observaciones: item.observaciones || '',
         });
+
+        // Fetch movements
+        const { data, error } = await supabase
+            .from('d_ordenes_movimientos')
+            .select('*')
+            .eq('d_orden_id', item.id)
+            .order('fecha_hora', { ascending: false });
+
+        if (!error && data) {
+            setMovimientos(data as DOrdenMovimiento[]);
+        }
+
+        setNewMov(prev => ({ ...prev, d_orden_id: item.id }));
         setView('edit');
+    };
+
+    const handleSaveMovimiento = async () => {
+        if (!newMov.placa || !newMov.conductor || newMov.bultos <= 0) {
+            alert('Por favor complete los campos obligatorios del movimiento');
+            return;
+        }
+
+        try {
+            let error;
+            if (newMov.id) {
+                // Update
+                const { error: updateError } = await supabase
+                    .from('d_ordenes_movimientos')
+                    .update({
+                        tipo: newMov.tipo,
+                        placa: newMov.placa,
+                        fecha_hora: newMov.fecha_hora,
+                        conductor: newMov.conductor,
+                        bultos: newMov.bultos,
+                        peso_bruto: newMov.peso_bruto,
+                        estado: newMov.estado
+                    })
+                    .eq('id', newMov.id);
+                error = updateError;
+            } else {
+                // Insert
+                const { error: insertError } = await supabase
+                    .from('d_ordenes_movimientos')
+                    .insert([newMov]);
+                error = insertError;
+            }
+
+            if (error) throw error;
+
+            alert(newMov.id ? 'Movimiento actualizado' : 'Movimiento registrado correctamente');
+
+            // Refresh movements
+            const { data } = await supabase
+                .from('d_ordenes_movimientos')
+                .select('*')
+                .eq('d_orden_id', formData.id)
+                .order('fecha_hora', { ascending: false });
+
+            setMovimientos(data || []);
+
+            // Clear mini form
+            setNewMov({
+                d_orden_id: formData.id,
+                tipo: 'ingreso',
+                placa: '',
+                fecha_hora: new Date().toISOString().slice(0, 16),
+                conductor: '',
+                bultos: 0,
+                peso_bruto: 0,
+                estado: 'total'
+            });
+        } catch (error: any) {
+            alert('Error al procesar movimiento: ' + error.message);
+        }
+    };
+
+    const handleEditMovimiento = (m: DOrdenMovimiento) => {
+        setNewMov({
+            ...m,
+            fecha_hora: m.fecha_hora ? new Date(m.fecha_hora).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16)
+        });
+    };
+
+    const handleDeleteMovimiento = async (id: string) => {
+        if (!confirm('¿Seguro que desea eliminar este movimiento?')) return;
+        try {
+            const { error } = await supabase.from('d_ordenes_movimientos').delete().eq('id', id);
+            if (error) throw error;
+            setMovimientos(prev => prev.filter(m => m.id !== id));
+        } catch (error: any) {
+            alert('Error al eliminar: ' + error.message);
+        }
     };
 
     const toOptions = (list: Entidad[]) => list.map(i => ({ id: i.id, label: i.nombre }));
@@ -285,7 +404,7 @@ export const DOrdenesModule: React.FC = () => {
                         <div className="p-2 bg-brand-blue/10 rounded-lg text-brand-blue">
                             <FileSpreadsheet size={24} />
                         </div>
-                        <h2 className="text-2xl font-bold text-gray-800">Control de Órdenes (D.O.)</h2>
+                        <h2 className="text-2xl font-bold text-gray-800">Control de D.Ordenes</h2>
                     </div>
                     <div className="flex items-center gap-3 w-full md:w-auto">
                         <div className="relative flex-1 md:w-64">
@@ -377,25 +496,59 @@ export const DOrdenesModule: React.FC = () => {
                                             </div>
                                         </div>
 
-                                        {/* Logistics Grid Column */}
-                                        <div className="flex-1">
-                                            <div className="mb-2 flex items-center gap-2">
-                                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Detalles Logísticos</h4>
-                                                <div className="h-[1px] bg-gray-100 flex-1"></div>
+                                        {/* Logistics & Movements Column */}
+                                        <div className="flex-1 space-y-6">
+                                            {/* Logistics Grid */}
+                                            <div>
+                                                <div className="mb-2 flex items-center gap-2">
+                                                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Logística</h4>
+                                                    <div className="h-[1px] bg-gray-100 flex-1"></div>
+                                                </div>
+                                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                                                    <InfoPill label="Form. Ingreso" value={item.form_ingreso} />
+                                                    <InfoPill label="Lib. BL" value={item.liberacion_bl} />
+                                                    <InfoPill label="Pago Transp." value={item.pago_facturas_transporte} />
+                                                    <InfoPill label="Planilla ZF" value={item.entrega_planilla_zf} />
+                                                    <InfoPill label="Traslado ZF" value={item.traslado_zf} />
+                                                </div>
                                             </div>
-                                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-                                                {/* We map the columns from the image */}
-                                                <InfoPill label="Form. Ingreso" value={item.form_ingreso} />
-                                                <InfoPill label="Lib. BL" value={item.liberacion_bl} />
-                                                <InfoPill label="Pago Transp." value={item.pago_facturas_transporte} />
-                                                <InfoPill label="Planilla ZF" value={item.entrega_planilla_zf} />
-                                                <InfoPill label="Traslado ZF" value={item.traslado_zf} />
-                                                <InfoPill label="Legaliz. Ing." value={item.legalizacion_ingreso} />
-                                                <InfoPill label="Proforma" value={item.proforma_ingreso} />
-                                                <InfoPill label="Preinspección" value={item.preinspeccion} />
-                                                <InfoPill label="Form. Salida" value={item.form_salida} />
-                                                <InfoPill label="Cargue/Salida" value={item.cargue_salida_mercancia} />
-                                            </div>
+
+                                            {/* Movements Summary */}
+                                            {item.movimientos && item.movimientos.length > 0 && (
+                                                <div>
+                                                    <div className="mb-2 flex items-center gap-2">
+                                                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Movimientos Recientes</h4>
+                                                        <div className="h-[1px] bg-gray-100 flex-1"></div>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        {item.movimientos.slice(0, 3).map((m, idx) => (
+                                                            <div key={idx} className={`flex flex-col sm:flex-row sm:items-center justify-between p-2 rounded text-[11px] border ${m.tipo === 'ingreso' ? 'bg-green-50 border-green-100' : 'bg-orange-50 border-orange-100'}`}>
+                                                                <div className="flex flex-col gap-0.5 font-medium">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${m.tipo === 'ingreso' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                                                                            {m.tipo === 'ingreso' ? 'IN' : 'OUT'}
+                                                                        </span>
+                                                                        <span className="text-gray-700 font-bold">{m.placa}</span>
+                                                                        <span className="text-gray-400">|</span>
+                                                                        <span className="text-gray-600 truncate max-w-[120px]">{m.conductor}</span>
+                                                                    </div>
+                                                                    <div className="text-[10px] text-gray-400 flex items-center gap-1">
+                                                                        <Calendar size={10} />
+                                                                        {new Date(m.fecha_hora).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })}
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex gap-3 font-bold mt-1 sm:mt-0">
+                                                                    <span className={m.tipo === 'ingreso' ? 'text-green-600' : 'text-orange-600'}>{m.bultos} Bultos</span>
+                                                                    <span className="text-gray-500">{m.peso_bruto} Kg</span>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                        {item.movimientos.length > 3 && (
+                                                            <div className="text-[10px] text-gray-400 italic text-center">+{item.movimientos.length - 3} movimientos más...</div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
 
                                             {(item.fecha_facturacion_almacenaje || item.observaciones) && (
                                                 <div className="mt-4 pt-3 border-t border-gray-100 flex flex-col md:flex-row gap-4 text-sm">
@@ -456,7 +609,7 @@ export const DOrdenesModule: React.FC = () => {
                         <FileSpreadsheet size={24} />
                     </div>
                     <h2 className="text-2xl font-bold text-gray-800">
-                        {view === 'create' ? 'Nueva Orden (D.O.)' : 'Editar Orden'}
+                        {view === 'create' ? 'Nueva D.Orden' : 'Control de D.Orden'}
                     </h2>
                 </div>
             </div>
@@ -621,6 +774,143 @@ export const DOrdenesModule: React.FC = () => {
                         </label>
                     </div>
                 </div>
+
+                {/* Section 5: Ingresos y Salidas (Only if Edit) */}
+                {view === 'edit' && (
+                    <div className="pt-8 border-t space-y-6">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-bold text-brand-blue flex items-center gap-2">
+                                <TrendingUp size={20} />
+                                Control de Movimientos (Ingreso/Salida)
+                            </h3>
+                        </div>
+
+                        {/* New Movement Form */}
+                        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 gap-3 items-end relative">
+                            {newMov.id && (
+                                <div className="absolute -top-3 left-4 bg-brand-yellow text-brand-blue-dark text-[10px] font-black px-2 py-0.5 rounded shadow-sm flex items-center gap-1">
+                                    EDITANDO MOVIMIENTO
+                                    <button onClick={() => setNewMov({
+                                        d_orden_id: formData.id,
+                                        tipo: 'ingreso',
+                                        placa: '',
+                                        fecha_hora: new Date().toISOString().slice(0, 16),
+                                        conductor: '',
+                                        bultos: 0,
+                                        peso_bruto: 0,
+                                        estado: 'total'
+                                    })} className="hover:text-red-600"><X size={10} /></button>
+                                </div>
+                            )}
+                            <div>
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Tipo</label>
+                                <select
+                                    className="w-full border rounded p-2 text-sm outline-none focus:ring-2 focus:ring-brand-blue/20"
+                                    value={newMov.tipo}
+                                    onChange={e => setNewMov({ ...newMov, tipo: e.target.value as any })}
+                                >
+                                    <option value="ingreso">Ingreso</option>
+                                    <option value="salida">Salida</option>
+                                </select>
+                            </div>
+                            <div className="lg:col-span-1">
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Placa Vehículo</label>
+                                <input type="text" className="w-full border rounded p-2 text-sm outline-none" placeholder="ABC-123"
+                                    value={newMov.placa} onChange={e => setNewMov({ ...newMov, placa: e.target.value.toUpperCase() })} />
+                            </div>
+                            <div className="lg:col-span-1">
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Fecha y Hora</label>
+                                <input type="datetime-local" className="w-full border rounded p-2 text-sm outline-none"
+                                    value={newMov.fecha_hora} onChange={e => setNewMov({ ...newMov, fecha_hora: e.target.value })} />
+                            </div>
+                            <div className="lg:col-span-1 md:col-span-1">
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Nombre Conductor</label>
+                                <input type="text" className="w-full border rounded p-2 text-sm outline-none" placeholder="Nombre completo"
+                                    value={newMov.conductor} onChange={e => setNewMov({ ...newMov, conductor: e.target.value })} />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Bultos</label>
+                                <input type="number" className="w-full border rounded p-2 text-sm outline-none"
+                                    value={newMov.bultos} onChange={e => setNewMov({ ...newMov, bultos: Number(e.target.value) })} />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Peso Bruto (Kg)</label>
+                                <input type="number" step="0.01" className="w-full border rounded p-2 text-sm outline-none" placeholder="0.00"
+                                    value={newMov.peso_bruto} onChange={e => setNewMov({ ...newMov, peso_bruto: Number(e.target.value) })} />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Alcance</label>
+                                <select
+                                    className="w-full border rounded p-2 text-sm outline-none focus:ring-2 focus:ring-brand-blue/20"
+                                    value={newMov.estado}
+                                    onChange={e => setNewMov({ ...newMov, estado: e.target.value as any })}
+                                >
+                                    <option value="total">Total</option>
+                                    <option value="parcial">Parcial</option>
+                                </select>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleSaveMovimiento}
+                                className={`${newMov.id ? 'bg-brand-yellow text-brand-blue-dark' : 'bg-brand-blue text-white'} p-2 rounded-lg hover:opacity-90 transition-all flex items-center justify-center gap-1 font-medium text-sm`}
+                            >
+                                {newMov.id ? <Save size={16} /> : <Plus size={16} />}
+                                {newMov.id ? 'Actualizar' : 'Registrar'}
+                            </button>
+                        </div>
+
+                        {/* Movements History List */}
+                        <div className="space-y-3">
+                            {movimientos.length > 0 ? (
+                                movimientos.map((m, idx) => (
+                                    <div key={idx} className={`flex flex-col md:flex-row md:items-center justify-between p-3 rounded-lg border text-sm ${m.tipo === 'ingreso' ? 'bg-green-50/30 border-green-100' : 'bg-orange-50/30 border-orange-100'}`}>
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleEditMovimiento(m)}
+                                                    className="p-1.5 text-gray-400 hover:text-brand-blue transition-colors"
+                                                    title="Editar Movimiento"
+                                                >
+                                                    <Edit size={14} />
+                                                </button>
+                                                <div className={`p-1.5 rounded-full ${m.tipo === 'ingreso' ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
+                                                    {m.tipo === 'ingreso' ? <div className="text-[10px] font-black uppercase px-2">IN</div> : <div className="text-[10px] font-black uppercase px-1">OUT</div>}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div className="font-bold text-gray-800">Vehículo: {m.placa} | {m.conductor}</div>
+                                                <div className="text-xs text-gray-500 font-medium">
+                                                    {new Date(m.fecha_hora).toLocaleString('es-CO')} | Alcance: <span className="uppercase font-bold">{m.estado}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-6 mt-3 md:mt-0">
+                                            <div className="text-right">
+                                                <div className="text-[10px] uppercase font-bold text-gray-400">Detalle</div>
+                                                <div className={`text-sm font-black ${m.tipo === 'ingreso' ? 'text-green-600' : 'text-orange-600'}`}>
+                                                    {m.tipo === 'ingreso' ? '+' : '-'}{m.bultos} Bultos
+                                                </div>
+                                                <div className="text-[10px] text-gray-500">{m.peso_bruto} Kg</div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteMovimiento(m.id!)}
+                                                className="text-gray-300 hover:text-red-500 transition-colors"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-center py-6 text-gray-400 italic text-sm border border-dashed rounded-lg bg-gray-50/50">
+                                    No hay movimientos registrados para esta D.Orden.
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 <div className="pt-6 border-t flex justify-end">
                     <button
