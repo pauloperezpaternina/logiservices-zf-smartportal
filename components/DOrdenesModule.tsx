@@ -17,6 +17,7 @@ interface DOrdenMovimiento {
     conductor: string;
     bultos: number;
     peso_bruto: number;
+    formulario_ref?: string;
     estado: 'total' | 'parcial';
     created_at?: string;
 }
@@ -73,6 +74,7 @@ export const DOrdenesModule: React.FC = () => {
         conductor: '',
         bultos: 0,
         peso_bruto: 0,
+        formulario_ref: '',
         estado: 'total'
     });
 
@@ -322,6 +324,7 @@ export const DOrdenesModule: React.FC = () => {
                         conductor: newMov.conductor,
                         bultos: newMov.bultos,
                         peso_bruto: newMov.peso_bruto,
+                        formulario_ref: newMov.formulario_ref,
                         estado: newMov.estado
                     })
                     .eq('id', newMov.id);
@@ -356,6 +359,7 @@ export const DOrdenesModule: React.FC = () => {
                 conductor: '',
                 bultos: 0,
                 peso_bruto: 0,
+                formulario_ref: '',
                 estado: 'total'
             });
         } catch (error: any) {
@@ -504,8 +508,9 @@ export const DOrdenesModule: React.FC = () => {
                                                     <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Logística</h4>
                                                     <div className="h-[1px] bg-gray-100 flex-1"></div>
                                                 </div>
-                                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
                                                     <InfoPill label="Form. Ingreso" value={item.form_ingreso} />
+                                                    <InfoPill label="Form. Salida" value={item.form_salida} />
                                                     <InfoPill label="Lib. BL" value={item.liberacion_bl} />
                                                     <InfoPill label="Pago Transp." value={item.pago_facturas_transporte} />
                                                     <InfoPill label="Planilla ZF" value={item.entrega_planilla_zf} />
@@ -529,6 +534,11 @@ export const DOrdenesModule: React.FC = () => {
                                                                             {m.tipo === 'ingreso' ? 'IN' : 'OUT'}
                                                                         </span>
                                                                         <span className="text-gray-700 font-bold">{m.placa}</span>
+                                                                        {m.formulario_ref && (
+                                                                            <span className="text-brand-blue font-bold px-1.5 bg-blue-50 rounded border border-blue-100 uppercase text-[9px]">
+                                                                                F: {m.formulario_ref}
+                                                                            </span>
+                                                                        )}
                                                                         <span className="text-gray-400">|</span>
                                                                         <span className="text-gray-600 truncate max-w-[120px]">{m.conductor}</span>
                                                                     </div>
@@ -798,6 +808,7 @@ export const DOrdenesModule: React.FC = () => {
                                         conductor: '',
                                         bultos: 0,
                                         peso_bruto: 0,
+                                        formulario_ref: '',
                                         estado: 'total'
                                     })} className="hover:text-red-600"><X size={10} /></button>
                                 </div>
@@ -849,6 +860,13 @@ export const DOrdenesModule: React.FC = () => {
                                     <option value="parcial">Parcial</option>
                                 </select>
                             </div>
+                            {newMov.tipo === 'salida' && (
+                                <div className="lg:col-span-1">
+                                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Form. Salida</label>
+                                    <input type="text" className="w-full border rounded p-2 text-sm outline-none border-brand-blue/30 focus:border-brand-blue bg-blue-50/20" placeholder="Ej. 12345"
+                                        value={newMov.formulario_ref || ''} onChange={e => setNewMov({ ...newMov, formulario_ref: e.target.value })} />
+                                </div>
+                            )}
                             <button
                                 type="button"
                                 onClick={handleSaveMovimiento}
