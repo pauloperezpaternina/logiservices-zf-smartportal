@@ -108,7 +108,7 @@ export const Layout: React.FC<Props> = ({ user, onLogout, children, currentView,
               </div>
               {!isSidebarCollapsed && (
                 <div className="overflow-hidden text-left flex-1">
-                  <p className="text-sm font-medium truncate">{user.companyName}</p>
+                  <p className="text-sm font-medium truncate">{user.name || user.companyName}</p>
                   <p className="text-xs text-gray-400 truncate flex items-center">
                     {user.role} <Settings size={10} className="ml-1" />
                   </p>

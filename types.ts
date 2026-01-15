@@ -3,8 +3,10 @@ export type UserRole = 'admin' | 'client';
 export interface User {
   id: string;
   email: string;
-  role: UserRole;
+  role: string;
   companyName: string;
+  name: string;
+  avatar?: string;
 }
 
 export type ShipmentStatus = 'In Transit' | 'In Warehouse' | 'Dispatched' | 'Customs';
