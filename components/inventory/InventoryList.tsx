@@ -8,8 +8,16 @@ export const InventoryList: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
 
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+
     useEffect(() => {
         loadInventory();
+    }, [searchTerm]);
+
+    // Reset page when search changes
+    useEffect(() => {
+        setCurrentPage(1);
     }, [searchTerm]);
 
     const loadInventory = async () => {
@@ -23,6 +31,12 @@ export const InventoryList: React.FC = () => {
             setLoading(false);
         }
     };
+
+    // Paginacion
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const currentItems = inventory.slice(indexOfFirstItem, indexOfLastItem);
+    const totalPages = Math.ceil(inventory.length / itemsPerPage);
 
     return (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -62,7 +76,7 @@ export const InventoryList: React.FC = () => {
                         ) : inventory.length === 0 ? (
                             <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500">No se encontraron registros de inventario.</td></tr>
                         ) : (
-                            inventory.map((item) => (
+                            currentItems.map((item) => (
                                 <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
                                     <td className="px-6 py-4">
                                         <div className="font-medium text-brand-blue">{item.d_orden?.do_code}</div>
@@ -92,6 +106,71 @@ export const InventoryList: React.FC = () => {
                     </tbody>
                 </table>
             </div>
+
+            {/* Pagination UI */}
+            {!loading && inventory.length > 0 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-gray-100 bg-gray-50/50">
+                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                        <div className="flex items-center gap-2">
+                            <span>Mostrar:</span>
+                            <select
+                                value={itemsPerPage}
+                                onChange={(e) => {
+                                    setItemsPerPage(Number(e.target.value));
+                                    setCurrentPage(1);
+                                }}
+                                className="bg-white border border-gray-200 rounded px-2 py-1 outline-none focus:ring-2 focus:ring-brand-blue/20"
+                            >
+                                <option value={10}>10</option>
+                                <option value={20}>20</option>
+                                <option value={50}>50</option>
+                            </select>
+                        </div>
+                        <span>Mostrando {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, inventory.length)} de {inventory.length}</span>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                            disabled={currentPage === 1}
+                            className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-white hover:shadow-sm disabled:opacity-50 disabled:hover:shadow-none transition-all text-sm"
+                        >
+                            Anterior
+                        </button>
+
+                        <div className="flex items-center gap-1 mx-2">
+                            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                // Logic to show window of pages around current
+                                let p = i + 1;
+                                if (totalPages > 5) {
+                                    if (currentPage > 3) p = currentPage - 2 + i;
+                                    if (p > totalPages) p = totalPages - 4 + i;
+                                }
+                                return p;
+                            }).map(page => (
+                                <button
+                                    key={page}
+                                    onClick={() => setCurrentPage(page)}
+                                    className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition-all ${currentPage === page
+                                            ? 'bg-brand-blue text-white shadow-sm'
+                                            : 'text-gray-500 hover:bg-white hover:shadow-sm'
+                                        }`}
+                                >
+                                    {page}
+                                </button>
+                            ))}
+                        </div>
+
+                        <button
+                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                            disabled={currentPage === totalPages}
+                            className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-white hover:shadow-sm disabled:opacity-50 disabled:hover:shadow-none transition-all text-sm"
+                        >
+                            Siguiente
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

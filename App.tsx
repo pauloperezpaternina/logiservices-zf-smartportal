@@ -14,8 +14,7 @@ import { UsersModule } from './components/UsersModule';
 import { RolesModule } from './components/RolesModule';
 import { UserProfile } from './components/UserProfile';
 import { ConfigModule } from './components/ConfigModule';
-import { InventoryDashboard } from './components/inventory/InventoryDashboard';
-import { InventoryList } from './components/inventory/InventoryList';
+import { InventoryView } from './components/inventory/InventoryView';
 
 // Simplified Admin Dashboard (Just the content)
 const AdminDashboard = ({ user, shipments }: { user: User, shipments: Shipment[] }) => {
@@ -39,12 +38,7 @@ export default function App() {
     switch (currentView) {
       case 'entidades': return <EntidadesModule />;
       case 'dordenes': return <DOrdenesModule />;
-      case 'inventory': return (
-        <div className="space-y-6">
-          <InventoryDashboard />
-          <InventoryList />
-        </div>
-      );
+      case 'inventory': return <InventoryView />;
       case 'users': return <UsersModule />;
 
       // ... (in switch)

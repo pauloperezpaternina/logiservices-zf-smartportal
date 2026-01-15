@@ -91,6 +91,7 @@ export const DOrdenesModule: React.FC = () => {
     // Entity Options
     const [clientes, setClientes] = useState<Entidad[]>([]);
     const [agencias, setAgencias] = useState<Entidad[]>([]);
+    const [bodegas, setBodegas] = useState<any[]>([]);
 
     // Form State
     const [formData, setFormData] = useState<DOrden>({
@@ -146,6 +147,13 @@ export const DOrdenesModule: React.FC = () => {
                 .eq('es_agencia', true)
                 .order('nombre');
             setAgencias(dataAgencies || []);
+
+            // Fetch Warehouses
+            const { data: dataBodegas } = await supabase
+                .from('bodegas')
+                .select('*')
+                .order('nombre');
+            setBodegas(dataBodegas || []);
         } catch (error) {
             console.error('Error fetching entities for dropdowns:', error);
         }
@@ -460,9 +468,9 @@ export const DOrdenesModule: React.FC = () => {
                                 className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-brand-blue/20"
                             >
                                 <option value="all">Todas Bodegas</option>
-                                <option value="D13">Bodega D13</option>
-                                <option value="CA1-CA2">Bodega CA1-CA2</option>
-                                <option value="PATIO">Patio</option>
+                                {bodegas.map(b => (
+                                    <option key={b.id} value={b.codigo}>{b.nombre}</option>
+                                ))}
                             </select>
 
                             <select
@@ -894,9 +902,9 @@ export const DOrdenesModule: React.FC = () => {
                                 onChange={e => setFormData({ ...formData, bodega: e.target.value })}
                             >
                                 <option value="">Selección...</option>
-                                <option value="D13">D13</option>
-                                <option value="CA1-CA2">CA1-CA2</option>
-                                <option value="PATIO">PATIO</option>
+                                {bodegas.map(b => (
+                                    <option key={b.id} value={b.codigo}>{b.nombre}</option>
+                                ))}
                             </select>
                         </div>
                         <div className="md:col-span-1">
