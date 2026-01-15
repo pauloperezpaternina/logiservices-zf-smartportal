@@ -41,3 +41,22 @@ export interface ChatMessage {
   text: string;
   timestamp: Date;
 }
+
+export interface Warehouse {
+  id: string;
+  nombre: string;
+  codigo: string;
+  ubicacion: string;
+}
+
+export interface InventoryItem {
+  id: string;
+  bodega_id: string;
+  d_orden_id: string;
+  cantidad_bultos: number;
+  peso_actual: number;
+  updated_at: string;
+  // Joins
+  bodega?: Warehouse;
+  d_orden?: any; // We can refine this if we export DOrden interface
+}
