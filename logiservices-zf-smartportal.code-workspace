@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		// Configuración específica de Supabase para este proyecto
+		"supabase.accessToken": "${env:SUPABASE_ACCESS_TOKEN}",
+		"supabase.projectUrl": "${env:VITE_SUPABASE_URL}",
+	}
+}

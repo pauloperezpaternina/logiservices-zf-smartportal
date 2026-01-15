@@ -74,7 +74,7 @@ export const Auth: React.FC<Props> = ({ onLogin }) => {
             <div className="w-full flex items-center justify-center mb-4">
               <img src="/logo.png" alt="Logiservices ZF" className="w-[300px] h-auto object-contain" />
             </div>
-            <p className="text-brand-blue font-bold text-lg">SmartPortal v1.0</p>
+
           </div>
         </div>
 
