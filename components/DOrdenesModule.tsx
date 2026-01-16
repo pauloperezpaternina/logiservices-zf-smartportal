@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../services/supabase';
 import { SearchableSelect } from './SearchableSelect';
-import { Save, Loader2, FileSpreadsheet, Search, Plus, ArrowLeft, Edit, Trash2, Calendar, Package, FileText, CheckCircle, XCircle, TrendingUp, X, LayoutGrid, LayoutList, FileDown } from 'lucide-react';
+import { Save, Loader2, FileSpreadsheet, Search, Plus, ArrowLeft, Edit, Trash2, Calendar, Package, FileText, CheckCircle, XCircle, TrendingUp, X, LayoutGrid, LayoutList, FileDown, Upload, Sparkles } from 'lucide-react';
 import { generateIngresoPDF, generateSalidaPDF } from '../services/pdfService';
+import { extractDOrdenFromFormulario, ExtractedDOrdenData } from '../services/geminiService';
 
 interface Entidad {
     id: string;
@@ -72,6 +73,11 @@ export const DOrdenesModule: React.FC = () => {
     const [successMsg, setSuccessMsg] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [gridCols, setGridCols] = useState<1 | 2>(2);
+
+    // AI Import State
+    const [aiProcessing, setAiProcessing] = useState(false);
+    const [aiError, setAiError] = useState('');
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
@@ -458,6 +464,95 @@ export const DOrdenesModule: React.FC = () => {
 
     const toOptions = (list: Entidad[]) => list.map(i => ({ id: i.id, label: i.nombre }));
 
+    // AI Import Handler - Process uploaded image/PDF and extract data
+    const handleAIImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const files = event.target.files;
+        if (!files || files.length === 0) return;
+
+        setAiProcessing(true);
+        setAiError('');
+
+        try {
+            const file = files[0];
+
+            // Convert file to base64
+            const base64 = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    const result = reader.result as string;
+                    // Remove data URL prefix (e.g., "data:image/png;base64,")
+                    const base64Data = result.split(',')[1];
+                    resolve(base64Data);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+
+            // Determine mime type
+            let mimeType = file.type;
+            if (!mimeType || mimeType === 'application/pdf') {
+                // For PDFs, we need to convert to image or use as-is
+                // Gemini can handle some document types directly
+                mimeType = file.type || 'application/pdf';
+            }
+
+            // Call AI extraction
+            const extracted = await extractDOrdenFromFormulario(base64, mimeType);
+
+            if (!extracted) {
+                setAiError('No se pudo extraer información del documento. Verifica que el PDF sea legible o intenta con otro archivo.');
+                return;
+            }
+
+            // Auto-fill form with extracted data
+            setFormData(prev => ({
+                ...prev,
+                // D.Orden fields
+                bl_no: extracted.bl_no || prev.bl_no,
+                producto: extracted.producto || prev.producto,
+                bultos: extracted.bultos || prev.bultos,
+                observaciones: extracted.descripcion_mercancia || prev.observaciones,
+            }));
+
+            // If we have movement data, also populate the movement form
+            if (extracted.formulario_ref || extracted.contenedor || extracted.sello) {
+                setNewMov(prev => ({
+                    ...prev,
+                    formulario_ref: extracted.formulario_ref || prev.formulario_ref,
+                    contenedor: extracted.contenedor || prev.contenedor,
+                    sello: extracted.sello || prev.sello,
+                    peso_bruto: extracted.peso_bruto || prev.peso_bruto,
+                    bultos: extracted.bultos || prev.bultos,
+                    descripcion_mercancia: extracted.descripcion_mercancia || prev.descripcion_mercancia,
+                }));
+            }
+
+            // Try to match client by name or NIT
+            if (extracted.cliente_nombre) {
+                const matchedClient = clientes.find(c =>
+                    c.nombre.toLowerCase().includes(extracted.cliente_nombre!.toLowerCase()) ||
+                    extracted.cliente_nombre!.toLowerCase().includes(c.nombre.toLowerCase())
+                );
+                if (matchedClient) {
+                    setFormData(prev => ({ ...prev, client_id_entidad: matchedClient.id }));
+                }
+            }
+
+            setSuccessMsg('✅ Datos extraídos correctamente con IA. Verifica y completa la información.');
+            setTimeout(() => setSuccessMsg(''), 5000);
+
+        } catch (error: any) {
+            console.error('AI Import error:', error);
+            setAiError('Error al procesar: ' + (error.message || 'Error desconocido'));
+        } finally {
+            setAiProcessing(false);
+            // Reset file input
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+        }
+    };
+
     // --- RENDER HELPERS ---
 
     // A small pill component for logistics status fields
@@ -819,7 +914,50 @@ export const DOrdenesModule: React.FC = () => {
                         {view === 'create' ? 'Nueva D.Orden' : 'Control de D.Orden'}
                     </h2>
                 </div>
+
+                {/* AI Import Button - Only show in create mode */}
+                {view === 'create' && (
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            accept="image/*,.pdf"
+                            onChange={handleAIImport}
+                            className="hidden"
+                            id="ai-import-file"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={aiProcessing}
+                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:from-purple-600 hover:to-indigo-700 transition-all shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                            {aiProcessing ? (
+                                <>
+                                    <Loader2 size={18} className="animate-spin" />
+                                    Procesando...
+                                </>
+                            ) : (
+                                <>
+                                    <Sparkles size={18} />
+                                    Importar con IA
+                                </>
+                            )}
+                        </button>
+                    </div>
+                )}
             </div>
+
+            {/* AI Error Message */}
+            {aiError && (
+                <div className="p-4 bg-red-50 text-red-700 rounded-lg border border-red-200 mb-4 flex items-center gap-2">
+                    <XCircle size={18} />
+                    {aiError}
+                    <button onClick={() => setAiError('')} className="ml-auto text-red-400 hover:text-red-600">
+                        <X size={16} />
+                    </button>
+                </div>
+            )}
 
             {successMsg && (
                 <div className="p-4 bg-green-50 text-green-700 rounded-lg border border-green-200 mb-4 animate-in fade-in slide-in-from-top-2">
@@ -828,6 +966,16 @@ export const DOrdenesModule: React.FC = () => {
             )}
 
             <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-8">
+                {/* AI Import Help Text */}
+                {view === 'create' && (
+                    <div className="p-3 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg border border-purple-100 flex items-start gap-3">
+                        <Sparkles size={18} className="text-purple-500 shrink-0 mt-0.5" />
+                        <div className="text-xs text-purple-700">
+                            <span className="font-bold">Tip:</span> Sube el PDF del "Formulario de Movimiento de Mercancías" y la IA extraerá automáticamente los datos como BL, Producto, Bultos, Contenedor, Sello, etc.
+                        </div>
+                    </div>
+                )}
+
                 {/* Section 1: Basic Info */}
                 <div>
                     <h3 className="text-lg font-semibold text-gray-700 mb-4 pb-2 border-b">Información Principal</h3>
