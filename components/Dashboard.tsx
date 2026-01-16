@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase';
-import { Loader2, Calendar, Filter, FileText, AlertTriangle, Clock, Package, ChevronRight, TrendingUp } from 'lucide-react';
+import { Loader2, Calendar, Filter, FileText, AlertTriangle, Clock, Package, ChevronRight, ChevronLeft, TrendingUp } from 'lucide-react';
 import { User, Shipment } from '../types';
 
 interface Props {
@@ -22,6 +22,8 @@ interface StorageAlert {
   arrival_date: string;
   days_passed: number;
   days_left: number;
+  months_billable: number; // Cuántos meses completos de almacenaje para facturar
+  is_overdue: boolean; // true si ya pasó de 30 días
 }
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#8dd1e1'];
@@ -30,6 +32,8 @@ export const Dashboard: React.FC<Props> = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ChartData[]>([]);
   const [storageAlerts, setStorageAlerts] = useState<StorageAlert[]>([]);
+  const [alertPage, setAlertPage] = useState(1);
+  const ALERTS_PER_PAGE = 5;
 
   // Date Filters
   const [startDate, setStartDate] = useState(() => {
@@ -122,23 +126,40 @@ export const Dashboard: React.FC<Props> = ({ user }) => {
           // Target is 30 days (1 month approx)
           const daysToMonth = 30 - diffDays;
 
-          // User wants alerts for those with less than 10 days to reach 1 month
-          // Including those that might have slightly passed it? 
-          // Instruction: "menos de 10 dias para cumplir un mes" -> [21-30 days]
-          if (daysToMonth >= 0 && daysToMonth <= 10) {
+          // Calcular meses completos de almacenaje para facturación
+          const monthsBillable = Math.floor(diffDays / 30);
+
+          // NUEVA LÓGICA:
+          // 1. D.O. próximas a cumplir 30 días (entre 20-30 días, faltan 0-10 días)
+          // 2. D.O. que ya pasaron los 30 días (vencidas) - SIEMPRE se muestran
+          const isNearMonth = daysToMonth >= 0 && daysToMonth <= 10; // Entre 20-30 días
+          const isOverdue = diffDays >= 30; // Ya pasaron 30 días o más
+
+          if (isNearMonth || isOverdue) {
             alerts.push({
               id: order.id,
               do_code: order.do_code,
               client_name: (order as any).cliente?.nombre || '---',
               arrival_date: arrivalDate.toLocaleDateString(),
               days_passed: diffDays,
-              days_left: daysToMonth
+              days_left: daysToMonth > 0 ? daysToMonth : 0,
+              months_billable: monthsBillable,
+              is_overdue: isOverdue
             });
           }
         }
       });
 
-      setStorageAlerts(alerts.sort((a, b) => a.days_left - b.days_left));
+      // Ordenar: primero las vencidas (por más días), luego las próximas (por menos días restantes)
+      setStorageAlerts(alerts.sort((a, b) => {
+        // Las vencidas primero
+        if (a.is_overdue && !b.is_overdue) return -1;
+        if (!a.is_overdue && b.is_overdue) return 1;
+        // Entre vencidas, las que llevan más días primero
+        if (a.is_overdue && b.is_overdue) return b.days_passed - a.days_passed;
+        // Entre próximas, las que tienen menos días restantes primero
+        return a.days_left - b.days_left;
+      }));
 
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -281,46 +302,90 @@ export const Dashboard: React.FC<Props> = ({ user }) => {
                 <p className="text-sm font-medium">No hay alertas pendientes</p>
               </div>
             ) : (
-              storageAlerts.map(alert => (
-                <div key={alert.id} className="bg-white rounded-2xl border border-orange-100 shadow-sm p-5 hover:shadow-md transition-all relative overflow-hidden group">
-                  <div className="absolute top-0 left-0 w-1.5 h-full bg-orange-400 transform -translate-x-full group-hover:translate-x-0 transition-transform"></div>
+              storageAlerts
+                .slice((alertPage - 1) * ALERTS_PER_PAGE, alertPage * ALERTS_PER_PAGE)
+                .map(alert => (
+                  <div key={alert.id} className={`bg-white rounded-2xl border shadow-sm p-5 hover:shadow-md transition-all relative overflow-hidden group ${alert.is_overdue ? 'border-red-200' : 'border-orange-100'
+                    }`}>
+                    <div className={`absolute top-0 left-0 w-1.5 h-full transform -translate-x-full group-hover:translate-x-0 transition-transform ${alert.is_overdue ? 'bg-red-500' : 'bg-orange-400'
+                      }`}></div>
 
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="space-y-1">
-                      <span className="text-base font-black text-brand-blue block leading-none">{alert.do_code}</span>
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="space-y-1">
+                        <span className="text-base font-black text-brand-blue block leading-none">{alert.do_code}</span>
+                        {alert.is_overdue && alert.months_billable > 0 && (
+                          <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 px-2 py-0.5 rounded text-[10px] font-black mt-1">
+                            💰 {alert.months_billable} {alert.months_billable === 1 ? 'mes' : 'meses'} a facturar
+                          </span>
+                        )}
+                      </div>
+                      <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border shadow-sm ${alert.is_overdue
+                        ? 'bg-red-50 text-red-600 border-red-100'
+                        : 'bg-orange-50 text-orange-600 border-orange-100'
+                        }`}>
+                        <Clock size={12} className="shrink-0" />
+                        <span className="text-[11px] font-black whitespace-nowrap">
+                          {alert.is_overdue
+                            ? `Vencido: ${alert.days_passed} días`
+                            : `Faltan ${alert.days_left} días`
+                          }
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5 bg-orange-50 text-orange-600 px-3 py-1.5 rounded-full border border-orange-100 shadow-sm">
-                      <Clock size={12} className="shrink-0" />
-                      <span className="text-[11px] font-black whitespace-nowrap">Faltan {alert.days_left} días</span>
+
+                    <div className="flex items-start gap-2 mb-4">
+                      <Package size={14} className="text-gray-400 mt-0.5 shrink-0" />
+                      <p className="text-xs font-black text-gray-600 uppercase leading-[1.2] line-clamp-2">
+                        {alert.client_name}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-50">
+                      <div>
+                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Fecha Ingreso</p>
+                        <p className="text-sm font-bold text-gray-700">{alert.arrival_date}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Días en Bodega</p>
+                        <p className={`text-sm font-black italic ${alert.is_overdue ? 'text-red-600' : 'text-orange-600'}`}>
+                          {alert.days_passed} días
+                        </p>
+                      </div>
                     </div>
                   </div>
-
-                  <div className="flex items-start gap-2 mb-4">
-                    <Package size={14} className="text-gray-400 mt-0.5 shrink-0" />
-                    <p className="text-xs font-black text-gray-600 uppercase leading-[1.2] line-clamp-2">
-                      {alert.client_name}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-50">
-                    <div>
-                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Fecha Ingreso</p>
-                      <p className="text-sm font-bold text-gray-700">{alert.arrival_date}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Días en Bodega</p>
-                      <p className="text-sm font-black text-orange-600 italic">{alert.days_passed} días</p>
-                    </div>
-                  </div>
-                </div>
-              ))
+                ))
             )}
           </div>
+
+          {/* Pagination Controls */}
+          {storageAlerts.length > ALERTS_PER_PAGE && (
+            <div className="p-3 border-t border-gray-100 flex items-center justify-between">
+              <button
+                onClick={() => setAlertPage(p => Math.max(1, p - 1))}
+                disabled={alertPage === 1}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-gray-100 hover:bg-gray-200 text-gray-600"
+              >
+                <ChevronLeft size={14} />
+                Anterior
+              </button>
+              <span className="text-xs font-bold text-gray-500">
+                Página {alertPage} de {Math.ceil(storageAlerts.length / ALERTS_PER_PAGE)}
+              </span>
+              <button
+                onClick={() => setAlertPage(p => Math.min(Math.ceil(storageAlerts.length / ALERTS_PER_PAGE), p + 1))}
+                disabled={alertPage >= Math.ceil(storageAlerts.length / ALERTS_PER_PAGE)}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-gray-100 hover:bg-gray-200 text-gray-600"
+              >
+                Siguiente
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          )}
 
           <div className="p-4 bg-gray-50 border-t border-gray-100 rounded-b-xl">
             <div className="flex items-center gap-3 text-[10px] text-gray-500 font-medium">
               <div className="w-2 h-2 rounded-full bg-orange-400 shadow-[0_0_8px_rgba(251,146,60,0.5)] flex-shrink-0 animate-pulse"></div>
-              <p className="leading-tight">Considera D.O. activos sin salida que cumplen un mes (30 días) en los próximos 10 días.</p>
+              <p className="leading-tight">D.O. activos sin salida: próximos a cumplir 30 días y vencidos. Muestra meses de almacenaje para facturación.</p>
             </div>
           </div>
         </div>
