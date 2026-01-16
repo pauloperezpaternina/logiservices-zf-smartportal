@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase';
 import { SearchableSelect } from './SearchableSelect';
-import { Save, Loader2, FileSpreadsheet, Search, Plus, ArrowLeft, Edit, Trash2, Calendar, Package, FileText, CheckCircle, XCircle, TrendingUp, X, LayoutGrid, LayoutList } from 'lucide-react';
+import { Save, Loader2, FileSpreadsheet, Search, Plus, ArrowLeft, Edit, Trash2, Calendar, Package, FileText, CheckCircle, XCircle, TrendingUp, X, LayoutGrid, LayoutList, FileDown } from 'lucide-react';
+import { generateIngresoPDF, generateSalidaPDF } from '../services/pdfService';
 
 interface Entidad {
     id: string;
@@ -20,6 +21,15 @@ interface DOrdenMovimiento {
     formulario_ref?: string;
     estado: 'total' | 'parcial';
     created_at?: string;
+    // Nuevos campos para PDF
+    cedula_conductor?: string;
+    sello?: string;
+    contenedor?: string;
+    cama_baja?: boolean;
+    mula?: string;
+    tiempo_extraordinario?: boolean;
+    descripcion_mercancia?: string;
+    pedido?: string;
 }
 
 interface DOrden {
@@ -85,7 +95,16 @@ export const DOrdenesModule: React.FC = () => {
         bultos: 0,
         peso_bruto: 0,
         formulario_ref: '',
-        estado: 'total'
+        estado: 'total',
+        // Nuevos campos para PDF
+        cedula_conductor: '',
+        sello: '',
+        contenedor: '',
+        cama_baja: false,
+        mula: '',
+        tiempo_extraordinario: false,
+        descripcion_mercancia: '',
+        pedido: ''
     });
 
     // Entity Options
@@ -346,27 +365,38 @@ export const DOrdenesModule: React.FC = () => {
 
         try {
             let error;
+            const movPayload = {
+                tipo: newMov.tipo,
+                placa: newMov.placa,
+                fecha_hora: newMov.fecha_hora,
+                conductor: newMov.conductor,
+                bultos: newMov.bultos,
+                peso_bruto: newMov.peso_bruto,
+                formulario_ref: newMov.formulario_ref,
+                estado: newMov.estado,
+                // Nuevos campos para PDF
+                cedula_conductor: newMov.cedula_conductor,
+                sello: newMov.sello,
+                contenedor: newMov.contenedor,
+                cama_baja: newMov.cama_baja,
+                mula: newMov.mula,
+                tiempo_extraordinario: newMov.tiempo_extraordinario,
+                descripcion_mercancia: newMov.descripcion_mercancia,
+                pedido: newMov.pedido
+            };
+
             if (newMov.id) {
                 // Update
                 const { error: updateError } = await supabase
                     .from('d_ordenes_movimientos')
-                    .update({
-                        tipo: newMov.tipo,
-                        placa: newMov.placa,
-                        fecha_hora: newMov.fecha_hora,
-                        conductor: newMov.conductor,
-                        bultos: newMov.bultos,
-                        peso_bruto: newMov.peso_bruto,
-                        formulario_ref: newMov.formulario_ref,
-                        estado: newMov.estado
-                    })
+                    .update(movPayload)
                     .eq('id', newMov.id);
                 error = updateError;
             } else {
                 // Insert
                 const { error: insertError } = await supabase
                     .from('d_ordenes_movimientos')
-                    .insert([newMov]);
+                    .insert([{ ...movPayload, d_orden_id: newMov.d_orden_id }]);
                 error = insertError;
             }
 
@@ -393,7 +423,15 @@ export const DOrdenesModule: React.FC = () => {
                 bultos: 0,
                 peso_bruto: 0,
                 formulario_ref: '',
-                estado: 'total'
+                estado: 'total',
+                cedula_conductor: '',
+                sello: '',
+                contenedor: '',
+                cama_baja: false,
+                mula: '',
+                tiempo_extraordinario: false,
+                descripcion_mercancia: '',
+                pedido: ''
             });
         } catch (error: any) {
             alert('Error al procesar movimiento: ' + error.message);
@@ -539,124 +577,141 @@ export const DOrdenesModule: React.FC = () => {
                     </div>
                 ) : (
                     <>
-                        <div className={`grid gap-4 ${gridCols === 2 ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
+                        <div className={`grid gap-3 ${gridCols === 2 ? 'grid-cols-1 lg:grid-cols-2 xl:grid-cols-3' : 'grid-cols-1'}`}>
                             {currentItems.map(item => (
-                                <div key={item.id} className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow p-5 relative overflow-hidden group">
+                                <div key={item.id} className="bg-white rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow p-3 relative overflow-hidden group">
                                     {/* Status Indicator (Left Border) */}
-                                    <div className={`absolute top-0 left-0 w-1.5 h-full ${item.activo ? 'bg-green-600' : 'bg-gray-300'}`}></div>
+                                    <div className={`absolute top-0 left-0 w-1 h-full ${item.activo ? 'bg-green-500' : 'bg-gray-300'}`}></div>
 
-                                    <div className="flex flex-col gap-4">
+                                    <div className="flex flex-col gap-2">
                                         {/* Row 1: Header */}
                                         <div className="flex items-start justify-between">
-                                            <div className="space-y-1">
-                                                <div className="flex items-center gap-2">
-                                                    <h3 className="text-xl font-bold text-brand-blue tracking-tight">{item.do_code}</h3>
+                                            <div className="space-y-0.5">
+                                                <div className="flex items-center gap-1.5">
+                                                    <h3 className="text-sm font-bold text-brand-blue tracking-tight">{item.do_code}</h3>
                                                     {item.bodega && (
-                                                        <span className="bg-brand-blue/10 text-brand-blue px-2 py-0.5 rounded text-[10px] font-bold uppercase">
+                                                        <span className="bg-brand-blue/10 text-brand-blue px-1.5 py-0.5 rounded text-[8px] font-bold uppercase">
                                                             {item.bodega}
                                                         </span>
                                                     )}
                                                 </div>
-                                                <p className="text-sm font-medium text-gray-400 uppercase tracking-tight">{item.producto}</p>
+                                                <p className="text-[10px] font-medium text-gray-400 uppercase tracking-tight truncate max-w-[180px]">{item.producto}</p>
                                             </div>
-                                            <div className="flex items-center gap-3">
-                                                {item.activo && <CheckCircle size={22} className="text-green-500" />}
+                                            <div className="flex items-center gap-1.5">
+                                                {item.activo && <CheckCircle size={14} className="text-green-500" />}
                                                 <button
                                                     onClick={() => handleEdit(item)}
-                                                    className="p-2 text-gray-300 hover:text-brand-blue hover:bg-blue-50 rounded-lg transition-colors border border-transparent opacity-0 group-hover:opacity-100"
+                                                    className="p-1 text-gray-300 hover:text-brand-blue hover:bg-blue-50 rounded transition-colors opacity-0 group-hover:opacity-100"
                                                     title="Editar"
                                                 >
-                                                    <Edit size={18} />
+                                                    <Edit size={14} />
                                                 </button>
                                             </div>
                                         </div>
 
-                                        {/* Core Details (BL, Bultos) */}
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-2 text-gray-600">
-                                                <FileText size={16} className="text-gray-400" />
-                                                <span className="text-sm font-normal">BL: <span className="text-gray-900 font-semibold">{item.bl_no}</span></span>
+                                        {/* Core Details (BL, Bultos) - Inline */}
+                                        <div className="flex items-center gap-3 text-[10px] text-gray-500">
+                                            <div className="flex items-center gap-1">
+                                                <FileText size={10} className="text-gray-400" />
+                                                <span>BL: <span className="text-gray-700 font-semibold">{item.bl_no}</span></span>
                                             </div>
-                                            <div className="flex items-center gap-2 text-gray-600">
-                                                <Package size={16} className="text-gray-400" />
-                                                <span className="text-sm font-normal">Bultos: <span className="text-gray-900 font-semibold">{item.bultos}</span></span>
+                                            <div className="flex items-center gap-1">
+                                                <Package size={10} className="text-gray-400" />
+                                                <span>Bultos: <span className="text-gray-700 font-semibold">{item.bultos}</span></span>
                                             </div>
                                         </div>
 
-                                        <div className="h-px bg-gray-50 flex-1"></div>
-
-                                        {/* Entities Section */}
-                                        <div className="space-y-3">
+                                        {/* Entities Section - Compact */}
+                                        <div className="grid grid-cols-2 gap-2 text-[9px]">
                                             <div>
-                                                <p className="text-[10px] uppercase font-bold text-gray-400 mb-0.5">Cliente</p>
-                                                <p className="text-sm font-bold text-gray-800" title={item.cliente?.nombre}>{item.cliente?.nombre || '---'}</p>
+                                                <p className="uppercase font-bold text-gray-400">Cliente</p>
+                                                <p className="font-semibold text-gray-700 truncate" title={item.cliente?.nombre}>{item.cliente?.nombre || '---'}</p>
                                             </div>
                                             <div>
-                                                <p className="text-[10px] uppercase font-bold text-gray-400 mb-0.5">Agencia</p>
-                                                <p className="text-sm font-bold text-gray-800" title={item.agencia?.nombre}>{item.agencia?.nombre || '---'}</p>
+                                                <p className="uppercase font-bold text-gray-400">Agencia</p>
+                                                <p className="font-semibold text-gray-700 truncate" title={item.agencia?.nombre}>{item.agencia?.nombre || '---'}</p>
                                             </div>
                                         </div>
 
                                         {/* Logistics & Movements (Extended Data) */}
-                                        <div className="space-y-4 pt-2 border-t border-gray-50 mt-auto">
+                                        <div className="space-y-2 pt-1.5 border-t border-gray-50">
                                             {/* Rastro Logístico (Grid) */}
-                                            <div className="space-y-2">
-                                                <div className="flex items-center gap-2">
-                                                    <h4 className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">Rastro Logístico</h4>
-                                                    <div className="h-[1px] bg-gray-100 flex-1"></div>
-                                                </div>
-                                                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                                                    <InfoPill label="Planilla ZF" value={item.entrega_planilla_zf} />
-                                                    <InfoPill label="Form. Salida" value={item.form_salida} />
-                                                    <InfoPill label="Lib. BL" value={item.liberacion_bl} />
-                                                </div>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {item.entrega_planilla_zf && (
+                                                    <span className="bg-gray-50 text-gray-600 px-1.5 py-0.5 rounded text-[8px] font-medium border border-gray-100">
+                                                        Planilla: {item.entrega_planilla_zf}
+                                                    </span>
+                                                )}
+                                                {item.form_salida && (
+                                                    <span className="bg-gray-50 text-gray-600 px-1.5 py-0.5 rounded text-[8px] font-medium border border-gray-100">
+                                                        F.Salida: {item.form_salida}
+                                                    </span>
+                                                )}
+                                                {item.liberacion_bl && (
+                                                    <span className="bg-gray-50 text-gray-600 px-1.5 py-0.5 rounded text-[8px] font-medium border border-gray-100">
+                                                        Lib.BL: {item.liberacion_bl}
+                                                    </span>
+                                                )}
                                             </div>
 
                                             {/* Recent Movements Summary */}
                                             {item.movimientos && item.movimientos.length > 0 && (
-                                                <div className="space-y-2">
-                                                    <div className="flex items-center gap-2">
-                                                        <h4 className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">Movimientos</h4>
-                                                        <div className="h-[1px] bg-gray-100 flex-1"></div>
-                                                    </div>
-                                                    <div className="space-y-1.5">
-                                                        {item.movimientos.slice(0, 2).map((m, idx) => (
-                                                            <div key={idx} className={`flex items-center justify-between p-2 rounded-lg border text-[10px] ${m.tipo === 'ingreso' ? 'bg-green-50/50 border-green-100' : 'bg-orange-50/50 border-orange-100'}`}>
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className={`px-1 rounded-[4px] font-bold uppercase text-[8px] ${m.tipo === 'ingreso' ? 'bg-green-200 text-green-700' : 'bg-orange-200 text-orange-700'}`}>
-                                                                        {m.tipo === 'ingreso' ? 'INC' : 'OUT'}
-                                                                    </span>
-                                                                    <span className="font-semibold text-gray-700">{m.placa}</span>
-                                                                    <span className="text-gray-400">|</span>
-                                                                    <span className="text-gray-500 font-medium">{new Date(m.fecha_hora).toLocaleDateString()}</span>
-                                                                </div>
-                                                                <div className="flex gap-3 font-bold">
-                                                                    <span className={m.tipo === 'ingreso' ? 'text-green-600' : 'text-orange-600'}>
-                                                                        {m.tipo === 'ingreso' ? '+' : '-'}{m.bultos} <span className="text-[8px] font-semibold opacity-60">BULT.</span>
-                                                                    </span>
-                                                                </div>
+                                                <div className="space-y-1">
+                                                    {item.movimientos.slice(0, 2).map((m, idx) => (
+                                                        <div key={idx} className={`flex items-center justify-between px-1.5 py-1 rounded border text-[9px] ${m.tipo === 'ingreso' ? 'bg-green-50/50 border-green-100' : 'bg-orange-50/50 border-orange-100'}`}>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className={`px-1 rounded font-bold uppercase text-[7px] ${m.tipo === 'ingreso' ? 'bg-green-200 text-green-700' : 'bg-orange-200 text-orange-700'}`}>
+                                                                    {m.tipo === 'ingreso' ? 'IN' : 'OUT'}
+                                                                </span>
+                                                                <span className="font-semibold text-gray-600">{m.placa}</span>
+                                                                <span className="text-gray-400">{new Date(m.fecha_hora).toLocaleDateString()}</span>
                                                             </div>
-                                                        ))}
-                                                        {item.movimientos.length > 2 && (
-                                                            <button
-                                                                onClick={() => handleEdit(item)}
-                                                                className="w-full text-center text-[9px] font-bold text-brand-blue hover:underline uppercase tracking-tighter pt-1"
-                                                            >
-                                                                Ver {item.movimientos.length - 2} movimientos más
-                                                            </button>
-                                                        )}
-                                                    </div>
+                                                            <div className="flex items-center gap-1">
+                                                                <span className={`font-bold ${m.tipo === 'ingreso' ? 'text-green-600' : 'text-orange-600'}`}>
+                                                                    {m.tipo === 'ingreso' ? '+' : '-'}{m.bultos}
+                                                                </span>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={async (e) => {
+                                                                        e.stopPropagation();
+                                                                        const ordenData = {
+                                                                            do_code: item.do_code,
+                                                                            cliente_nombre: item.cliente?.nombre || '---',
+                                                                            bl_no: item.bl_no,
+                                                                            bodega: item.bodega,
+                                                                            bultos: item.bultos,
+                                                                            producto: item.producto
+                                                                        };
+                                                                        if (m.tipo === 'ingreso') {
+                                                                            await generateIngresoPDF(ordenData, m as any);
+                                                                        } else {
+                                                                            await generateSalidaPDF(ordenData, m as any);
+                                                                        }
+                                                                    }}
+                                                                    className={`p-0.5 rounded transition-colors ${m.tipo === 'ingreso' ? 'text-green-400 hover:text-green-600' : 'text-orange-400 hover:text-orange-600'}`}
+                                                                    title={`PDF ${m.tipo}`}
+                                                                >
+                                                                    <FileDown size={10} />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                    {item.movimientos.length > 2 && (
+                                                        <button
+                                                            onClick={() => handleEdit(item)}
+                                                            className="w-full text-center text-[8px] font-bold text-brand-blue hover:underline uppercase"
+                                                        >
+                                                            +{item.movimientos.length - 2} más
+                                                        </button>
+                                                    )}
                                                 </div>
                                             )}
 
                                             {/* Observations */}
                                             {item.observaciones && (
-                                                <div className="pt-2 flex items-start gap-2">
-                                                    <span className="text-[10px] font-bold text-gray-400 uppercase">Obs:</span>
-                                                    <p className="text-[10px] text-gray-500 italic truncate" title={item.observaciones}>
-                                                        {item.observaciones}
-                                                    </p>
-                                                </div>
+                                                <p className="text-[8px] text-gray-400 italic truncate" title={item.observaciones}>
+                                                    Obs: {item.observaciones}
+                                                </p>
                                             )}
                                         </div>
                                     </div>
@@ -995,6 +1050,11 @@ export const DOrdenesModule: React.FC = () => {
                                     value={newMov.conductor} onChange={e => setNewMov({ ...newMov, conductor: e.target.value })} />
                             </div>
                             <div>
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">C.C. Conductor</label>
+                                <input type="text" className="w-full border rounded p-2 text-sm outline-none" placeholder="Cédula"
+                                    value={newMov.cedula_conductor || ''} onChange={e => setNewMov({ ...newMov, cedula_conductor: e.target.value })} />
+                            </div>
+                            <div>
                                 <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Bultos</label>
                                 <input type="number" className="w-full border rounded p-2 text-sm outline-none"
                                     value={newMov.bultos} onChange={e => setNewMov({ ...newMov, bultos: Number(e.target.value) })} />
@@ -1003,6 +1063,44 @@ export const DOrdenesModule: React.FC = () => {
                                 <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Peso Bruto (Kg)</label>
                                 <input type="number" step="0.01" className="w-full border rounded p-2 text-sm outline-none" placeholder="0.00"
                                     value={newMov.peso_bruto} onChange={e => setNewMov({ ...newMov, peso_bruto: Number(e.target.value) })} />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">N° Contenedor</label>
+                                <input type="text" className="w-full border rounded p-2 text-sm outline-none" placeholder="XXXX0000000"
+                                    value={newMov.contenedor || ''} onChange={e => setNewMov({ ...newMov, contenedor: e.target.value.toUpperCase() })} />
+                            </div>
+                            {newMov.tipo === 'ingreso' && (
+                                <>
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">N° Sello</label>
+                                        <input type="text" className="w-full border rounded p-2 text-sm outline-none" placeholder="Sello"
+                                            value={newMov.sello || ''} onChange={e => setNewMov({ ...newMov, sello: e.target.value })} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">N° Formulario</label>
+                                        <input type="text" className="w-full border rounded p-2 text-sm outline-none" placeholder="Formulario"
+                                            value={newMov.formulario_ref || ''} onChange={e => setNewMov({ ...newMov, formulario_ref: e.target.value })} />
+                                    </div>
+                                </>
+                            )}
+                            {newMov.tipo === 'salida' && (
+                                <>
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">N° Pedido</label>
+                                        <input type="text" className="w-full border rounded p-2 text-sm outline-none" placeholder="Pedido"
+                                            value={newMov.pedido || ''} onChange={e => setNewMov({ ...newMov, pedido: e.target.value })} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Form. Salida</label>
+                                        <input type="text" className="w-full border rounded p-2 text-sm outline-none border-brand-blue/30 focus:border-brand-blue bg-blue-50/20" placeholder="Ej. 12345"
+                                            value={newMov.formulario_ref || ''} onChange={e => setNewMov({ ...newMov, formulario_ref: e.target.value })} />
+                                    </div>
+                                </>
+                            )}
+                            <div>
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Mula</label>
+                                <input type="text" className="w-full border rounded p-2 text-sm outline-none" placeholder="Tipo mula"
+                                    value={newMov.mula || ''} onChange={e => setNewMov({ ...newMov, mula: e.target.value })} />
                             </div>
                             <div>
                                 <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Alcance</label>
@@ -1015,13 +1113,25 @@ export const DOrdenesModule: React.FC = () => {
                                     <option value="parcial">Parcial</option>
                                 </select>
                             </div>
-                            {newMov.tipo === 'salida' && (
-                                <div className="lg:col-span-1">
-                                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Form. Salida</label>
-                                    <input type="text" className="w-full border rounded p-2 text-sm outline-none border-brand-blue/30 focus:border-brand-blue bg-blue-50/20" placeholder="Ej. 12345"
-                                        value={newMov.formulario_ref || ''} onChange={e => setNewMov({ ...newMov, formulario_ref: e.target.value })} />
-                                </div>
-                            )}
+                            <div className="flex items-center gap-4 lg:col-span-2">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" className="w-4 h-4 rounded border-gray-300"
+                                        checked={newMov.cama_baja || false}
+                                        onChange={e => setNewMov({ ...newMov, cama_baja: e.target.checked })} />
+                                    <span className="text-[10px] font-bold text-gray-500 uppercase">Cama Baja</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" className="w-4 h-4 rounded border-gray-300"
+                                        checked={newMov.tiempo_extraordinario || false}
+                                        onChange={e => setNewMov({ ...newMov, tiempo_extraordinario: e.target.checked })} />
+                                    <span className="text-[10px] font-bold text-gray-500 uppercase">Tiempo Extraordinario</span>
+                                </label>
+                            </div>
+                            <div className="lg:col-span-3">
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Descripción de Mercancía</label>
+                                <textarea className="w-full border rounded p-2 text-sm outline-none resize-none" rows={2} placeholder="Descripción detallada..."
+                                    value={newMov.descripcion_mercancia || ''} onChange={e => setNewMov({ ...newMov, descripcion_mercancia: e.target.value })} />
+                            </div>
                             <button
                                 type="button"
                                 onClick={handleSaveMovimiento}
@@ -1066,6 +1176,28 @@ export const DOrdenesModule: React.FC = () => {
                                                 </div>
                                                 <div className="text-[10px] text-gray-500">{m.peso_bruto} Kg</div>
                                             </div>
+                                            <button
+                                                type="button"
+                                                onClick={async () => {
+                                                    const ordenData = {
+                                                        do_code: formData.do_code,
+                                                        cliente_nombre: clientes.find(c => c.id === formData.client_id_entidad)?.nombre || formData.cliente?.nombre || '---',
+                                                        bl_no: formData.bl_no,
+                                                        bodega: formData.bodega,
+                                                        bultos: formData.bultos,
+                                                        producto: formData.producto
+                                                    };
+                                                    if (m.tipo === 'ingreso') {
+                                                        await generateIngresoPDF(ordenData, m as any);
+                                                    } else {
+                                                        await generateSalidaPDF(ordenData, m as any);
+                                                    }
+                                                }}
+                                                className={`p-1.5 rounded transition-colors ${m.tipo === 'ingreso' ? 'text-green-400 hover:text-green-600 hover:bg-green-50' : 'text-orange-400 hover:text-orange-600 hover:bg-orange-50'}`}
+                                                title={`Generar PDF de ${m.tipo === 'ingreso' ? 'Ingreso' : 'Salida'}`}
+                                            >
+                                                <FileDown size={16} />
+                                            </button>
                                             <button
                                                 type="button"
                                                 onClick={() => handleDeleteMovimiento(m.id!)}

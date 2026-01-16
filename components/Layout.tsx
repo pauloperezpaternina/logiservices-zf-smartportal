@@ -50,7 +50,8 @@ export const Layout: React.FC<Props> = ({ user, onLogout, children, currentView,
       {/* Sidebar */}
       <aside
         className={`fixed md:sticky top-0 left-0 h-screen bg-brand-blue text-white z-50 transform transition-all duration-300 ease-in-out border-r border-white/10
-          ${isSidebarCollapsed ? 'w-20' : 'w-80'}
+          ${isSidebarCollapsed ? 'w-16' : 'w-64'}
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
           ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}
       >
@@ -65,20 +66,20 @@ export const Layout: React.FC<Props> = ({ user, onLogout, children, currentView,
           </button>
 
           {/* Logo Area */}
-          <div className={`p-6 flex items-center justify-center transition-all duration-300 ${isSidebarCollapsed ? 'px-2' : ''}`}>
+          <div className={`p-4 flex items-center justify-center transition-all duration-300 ${isSidebarCollapsed ? 'px-1' : ''}`}>
             {!isSidebarCollapsed ? (
-              <div className="w-full px-4 flex justify-center">
-                <img src="/logo.png" alt="Logiservices ZF" className="w-[280px] h-auto object-contain bg-white rounded-lg p-2" />
+              <div className="w-full px-2 flex justify-center">
+                <img src="/logo.png" alt="Logiservices ZF" className="w-[180px] h-auto object-contain bg-white rounded-lg p-1.5" />
               </div>
             ) : (
-              <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center p-1">
+              <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center p-0.5">
                 <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
               </div>
             )}
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 space-y-2 p-4 overflow-y-auto">
+          <nav className="flex-1 space-y-1 p-3 overflow-y-auto">
             <DollarTRM isCollapsed={isSidebarCollapsed} />
             <NavItem view="dashboard" icon={LayoutDashboard} label="Dashboard" />
             <NavItem view="inventory" icon={Package} label="Inventario" />
@@ -134,7 +135,7 @@ export const Layout: React.FC<Props> = ({ user, onLogout, children, currentView,
         {/* Mobile Header */}
         <header className="md:hidden bg-white p-4 shadow-sm flex items-center justify-between sticky top-0 z-30">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="Logiservices ZF" className="h-10 w-auto object-contain" />
+            <img src="/logo.png" alt="Logiservices ZF" className="h-8 w-auto object-contain" />
           </div>
           <button onClick={() => setIsSidebarOpen(true)} className="text-gray-600">
             <Menu size={24} />
@@ -142,7 +143,7 @@ export const Layout: React.FC<Props> = ({ user, onLogout, children, currentView,
         </header>
 
         {/* Content Body */}
-        <div className="p-4 md:p-8 overflow-y-auto flex-1">
+        <div className="p-3 md:p-6 overflow-y-auto flex-1">
           {children}
         </div>
       </main>
