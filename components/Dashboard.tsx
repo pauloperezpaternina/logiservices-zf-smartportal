@@ -304,56 +304,61 @@ export const Dashboard: React.FC<Props> = ({ user }) => {
             ) : (
               storageAlerts
                 .slice((alertPage - 1) * ALERTS_PER_PAGE, alertPage * ALERTS_PER_PAGE)
-                .map(alert => (
-                  <div key={alert.id} className={`bg-white rounded-lg border shadow-sm p-3 hover:shadow-md transition-all relative overflow-hidden group ${alert.is_overdue ? 'border-red-200' : 'border-orange-100'
-                    }`}>
-                    <div className={`absolute top-0 left-0 w-1 h-full transform -translate-x-full group-hover:translate-x-0 transition-transform ${alert.is_overdue ? 'bg-red-500' : 'bg-orange-400'
-                      }`}></div>
+                .map(alert => {
+                  // Calcular días para próxima facturación (próximo mes completo)
+                  const diasParaFactura = 30 - (alert.days_passed % 30);
+                  const mesesCompletos = Math.floor(alert.days_passed / 30);
 
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="space-y-0.5">
-                        <span className="text-xs font-bold text-brand-blue block leading-none">{alert.do_code}</span>
-                        {alert.is_overdue && alert.months_billable > 0 && (
-                          <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-[8px] font-bold">
-                            💰 {alert.months_billable} {alert.months_billable === 1 ? 'mes' : 'meses'}
+                  return (
+                    <div key={alert.id} className={`bg-white rounded-lg border shadow-sm p-3 hover:shadow-md transition-all relative overflow-hidden group ${mesesCompletos > 0 ? 'border-blue-200' : 'border-orange-100'
+                      }`}>
+                      <div className={`absolute top-0 left-0 w-1 h-full transform -translate-x-full group-hover:translate-x-0 transition-transform ${mesesCompletos > 0 ? 'bg-blue-500' : 'bg-orange-400'
+                        }`}></div>
+
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="space-y-0.5">
+                          <span className="text-xs font-bold text-brand-blue block leading-none">{alert.do_code}</span>
+                          {mesesCompletos > 0 && (
+                            <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[8px] font-bold">
+                              💰 {mesesCompletos} {mesesCompletos === 1 ? 'mes' : 'meses'} a facturar
+                            </span>
+                          )}
+                        </div>
+                        <div className={`flex items-center gap-1 px-2 py-1 rounded-full border text-[9px] font-bold ${diasParaFactura <= 5
+                            ? 'bg-red-50 text-red-600 border-red-100'
+                            : diasParaFactura <= 10
+                              ? 'bg-orange-50 text-orange-600 border-orange-100'
+                              : 'bg-green-50 text-green-600 border-green-100'
+                          }`}>
+                          <Clock size={10} className="shrink-0" />
+                          <span className="whitespace-nowrap">
+                            {diasParaFactura}d para factura
                           </span>
-                        )}
+                        </div>
                       </div>
-                      <div className={`flex items-center gap-1 px-2 py-1 rounded-full border text-[9px] font-bold ${alert.is_overdue
-                        ? 'bg-red-50 text-red-600 border-red-100'
-                        : 'bg-orange-50 text-orange-600 border-orange-100'
-                        }`}>
-                        <Clock size={10} className="shrink-0" />
-                        <span className="whitespace-nowrap">
-                          {alert.is_overdue
-                            ? `${alert.days_passed}d vencido`
-                            : `${alert.days_left}d restantes`
-                          }
-                        </span>
-                      </div>
-                    </div>
 
-                    <div className="flex items-center gap-1.5 mb-2">
-                      <Package size={10} className="text-gray-400 shrink-0" />
-                      <p className="text-[10px] font-semibold text-gray-600 uppercase truncate">
-                        {alert.client_name}
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-50 text-[9px]">
-                      <div>
-                        <p className="font-bold text-gray-400 uppercase">Ingreso</p>
-                        <p className="font-semibold text-gray-700">{alert.arrival_date}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-gray-400 uppercase">En Bodega</p>
-                        <p className={`font-bold ${alert.is_overdue ? 'text-red-600' : 'text-orange-600'}`}>
-                          {alert.days_passed} días
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <Package size={10} className="text-gray-400 shrink-0" />
+                        <p className="text-[10px] font-semibold text-gray-600 uppercase truncate">
+                          {alert.client_name}
                         </p>
                       </div>
+
+                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-50 text-[9px]">
+                        <div>
+                          <p className="font-bold text-gray-400 uppercase">Ingreso</p>
+                          <p className="font-semibold text-gray-700">{alert.arrival_date}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-gray-400 uppercase">Almacenaje</p>
+                          <p className="font-bold text-blue-600">
+                            {alert.days_passed} días
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
             )}
           </div>
 
@@ -385,7 +390,7 @@ export const Dashboard: React.FC<Props> = ({ user }) => {
           <div className="p-3 bg-gray-50 border-t border-gray-100 rounded-b-lg">
             <div className="flex items-center gap-2 text-[9px] text-gray-500 font-medium">
               <div className="w-1.5 h-1.5 rounded-full bg-orange-400 flex-shrink-0 animate-pulse"></div>
-              <p className="leading-tight">D.O. activos sin salida: próximos y vencidos. Meses para facturación.</p>
+              <p className="leading-tight">D.O. activos sin salida. Contabilidad debe facturar antes de cumplir cada mes de almacenaje.</p>
             </div>
           </div>
         </div>
